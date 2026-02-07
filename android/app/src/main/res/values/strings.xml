@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">kersh_timer</string>
+    <string name="title_activity_main">kersh_timer</string>
+    <string name="package_name">com.richardkershner.kersh_timer</string>
+    <string name="custom_url_scheme">com.richardkershner.kersh_timer</string>
+</resources>
