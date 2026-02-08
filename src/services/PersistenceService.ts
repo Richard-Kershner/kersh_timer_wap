@@ -40,7 +40,7 @@ Change Log:
 
 import { TimerConfig, TimerState } from '../models/TimerTypes';
 
-// Storage key prefix
+// Storage key(s) prefix
 const STORAGE_PREFIX = 'kersh_timer_';
 
 // Abstracted platform storage
