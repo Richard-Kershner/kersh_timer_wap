@@ -158,26 +158,26 @@ Step 2 — Timer Engine & Nested Execution Rules
 
 ### Step 3 — Audio & Alarm Layer
 
-| Item / File | Web | Android | iOS | Status | Completed |
-|------------|-----|---------|-----|--------|-----------|
-| **Step 3 Runtime Gate** | ⏳ | ⏳ | ⏳ | Planned | — |
-| `src/audio/AudioManager.ts` | ⏳ | ⏳ | ⏳ | Planned | — |
-| `src/services/AudioService.ts` | ⏳ | ⏳ | ⏳ | Planned | — |
-| `src/models/TimerTypes.ts` | ⏳ | ⏳ | ⏳ | Planned | — |
-| **Error correction & cleanup** | ⏳ | ⏳ | ⏳ | Pending | — |
-| **View / Run verification** | Audio playback | Device | Device | Pending | — |
+| Item / File | Web            | Android | iOS | Status   | Completed  |
+|------------|----------------|---------|-----|----------|------------|
+| **Step 3 Runtime Gate** | WEB   | Complete | 2026-02-07 |
+| `src/audio/AudioManager.ts` | WEB     | Complete | 2026_02-07 |
+| `src/services/AudioService.ts` |  WEB    | Complete | 2026-02-07 |
+| `src/models/TimerTypes.ts` |  WEB   | Planned  | 2026-02-07 |
+| **Error correction & cleanup** |  WEB     | Complete | 2026-02-07 |
+| **View / Run verification** | Audio playback | Web | Complete   |
 
 ---
 
 ### Step 4 — Persistence & Offline Sync
 
-| Item / File | Web | Android | iOS | Status | Completed |
-|------------|-----|---------|-----|--------|-----------|
-| **Step 4 Runtime Gate** | ⏳ | ⏳ | ⏳ | Planned | — |
-| `src/services/PersistenceService.ts` | ⏳ | ⏳ | ⏳ | Planned | — |
-| `src/models/TimerTypes.ts` | ⏳ | ⏳ | ⏳ | Planned | — |
-| **Error correction & cleanup** | ⏳ | ⏳ | ⏳ | Pending | — |
-| **View / Run verification** | Offline reload | Device | Device | Pending | — |
+| Item / File | Systems Web; Android & iOS        | Status | Completed  |
+|------------|----------------|-------|------------|--------|------------|
+| **Step 4 Runtime Gate** | WEB            | Complete | 2026-02-08 |
+| `src/services/PersistenceService.ts` | WEB  | Complete | 2026-02-07 |
+| `src/models/TimerTypes.ts` | WEB            | Complete | 2026-02-08 |
+| **Error correction & cleanup** | WEB            | Complete | 2026-02-08 |
+| **View / Run verification** | Offline reload |  WEB  | Complete | 2026-02-08 |
 
 ---
 
