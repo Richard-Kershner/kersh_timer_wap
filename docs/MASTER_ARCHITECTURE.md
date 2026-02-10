@@ -183,12 +183,12 @@ Step 2 — Timer Engine & Nested Execution Rules
 
 ### Step 5 — Web Deployment (PWA)
 
-| Item / File | Web | Android | iOS | Status | Completed |
-|------------|-----|---------|-----|--------|-----------|
-| **Step 5 Runtime Gate** | ⏳ | N/A | N/A | Planned | — |
-| Service worker / manifest | ⏳ | N/A | N/A | Planned | — |
-| **Error correction & cleanup** | ⏳ | N/A | N/A | Pending | — |
-| **View / Run verification** | Installed PWA | N/A | N/A | Pending | — |
+| Item / File | Web | Android | iOS | Status   | Completed |
+|------------|-----|---------|-----|----------|-----------|
+| **Step 5 Runtime Gate** | ⏳ | N/A | N/A | Complete | 2026_02-10 |
+| Service worker / manifest | ⏳ | N/A | N/A | Complete  | 2026_02-10 |
+| **Error correction & cleanup** | ⏳ | N/A | N/A | Complete  | 2026_02-10 |
+| **View / Run verification** | Installed PWA | N/A | N/A | Complete  | 2026_02-10 |
 
 ---
 

@@ -1,0 +1,59 @@
+/*
+===============================================================================
+FILE: public/manifest.webmanifest
+===============================================================================
+FINAL PURPOSE:
+Defines Progressive Web App metadata required for installability and OS-level
+integration of the Kersh Timer web application.
+
+RESPONSIBILITIES:
+- Declare application identity (name, short name, description)
+- Define display mode and theme colors
+- Register application icons for install prompts
+- Enable standalone PWA installation behavior
+
+CONNECTED FILES:
+- Read by: Browser / OS PWA installer
+- Referenced indirectly by: index.html (via <link rel="manifest">)
+
+SHARED DATA MODELS:
+- None (static deployment metadata only)
+
+NAMING CONVENTIONS:
+- JSON keys follow W3C Web App Manifest specification
+- File name must remain exactly: manifest.webmanifest
+
+DEVELOPMENT STEPS:
+- Step 1: Manifest scaffold and required fields
+- Step 2: Visual identity and install configuration
+- Step 3: Runtime verification (browser install prompt)
+
+STEP COMPLETION LOG:
+- Step 1: Complete — 2026-02-10 — New file
+- Step 2: Complete — 2026-02-10 — New file
+- Step 3: Pending — Runtime install verification
+===============================================================================
+*/
+{
+  "name": "Kersh Timer",
+  "short_name": "KershTimer",
+  "description": "Offline-first nested timer application with advanced audio orchestration.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
