@@ -1,222 +1,394 @@
-You are assisting with development of a complex, offline-first, nested timer application
-called **Kersh Timer**, built with:
+# Kersh Timer — Master Architecture Document
 
-- React + TypeScript (web core)
-- Capacitor (Android now, iOS later)
-- A shared codebase with strict architectural rules
+> **Authoritative Architecture & Development Control Document**  
+> This document defines what exists, what is allowed, and what is currently in scope for the Kersh Timer project.  
+> If something is not defined here or in an individual file header, it does **not** exist.**
 
-BEFORE WRITING ANY CODE, YOU MUST FOLLOW THESE RULES:
+---
 
-========================
-GLOBAL DEVELOPMENT RULES
-========================
+# 1. Project Overview
 
-1) FILE HEADER CONTRACT
-   Every source file must begin with a block comment that includes:
-- Final intended purpose of the file
+Kersh Timer is a **deterministic, offline-first, nested timer engine and application** designed for:
+
+- Web (Primary runtime)
+- Android (via Capacitor wrapper)
+- Desktop (Windows/macOS via PWA installation)
+
+iOS is explicitly **out of scope at this time** and will be added later.
+
+The system prioritizes:
+
+- Deterministic execution
+- Explicit state ownership
+- Strict module boundaries
+- Long-term maintainability
+- Zero hidden cross-module mutation
+
+The web application is the canonical runtime.  
+All other platforms wrap the web build without introducing business logic.
+
+---
+
+# 2. Document Authority & Use With ChatGPT
+
+This document serves as:
+
+- The **architectural contract**
+- The **development sequencing authority**
+- The **module boundary definition**
+- The **file responsibility registry**
+- The **step-tracking system**
+- The **AI development constraint system**
+
+When using ChatGPT:
+
+- Development must follow the active step only.
+- Files may only be created or modified when their owning step is active.
+- No architectural decisions may be introduced unless this document is updated first.
+    - This file, when updated, must be in mark down, md, format
+    - It is generated as a single file for easy copy/paste
+- Terminology must match this document exactly.
+
+If ChatGPT suggests a change not defined here, this document must be updated before implementation.
+
+---
+
+# 3. Global Development Rules (Binding)
+
+## 3.1 File Header Contract (Mandatory)
+
+Every source file must begin with a structured header block defining:
+
+- Final intended purpose
 - Explicit responsibilities
-- Connected files (who calls this file, and who this file calls)
-- Shared data models it reads or mutates
-- Naming conventions enforced in this file
-  No code may be written until this header is complete.
+- Connected files (incoming + outgoing)
+- Shared data models read or mutated
+- Naming conventions enforced in the file
+- Development steps
+- Step completion log
 
-2) DEVELOPMENT STEPS & CHANGE LOG
-   Each file must define explicit development steps near the top:
-- Step 1: Scaffold / interfaces
-- Step 2: Core logic
-- Step 3: Testing
-- Step 4+: Integration or feature extensions
+No code may appear before this header.
 
-When a step is completed:
-- Mark it complete
-- Add the completion date (YYYY-MM-DD)
-- List any other files affected by this step
+---
 
-3) INLINE COMMENT RULES
-   Inline comments must:
-- Reference development step numbers where applicable
-- Use terminology defined in the file header or master architecture
-- Avoid introducing new names not documented elsewhere
+## 3.2 Development Step Tracking
 
-4) MASTER ARCHITECTURE DOCUMENT
-   All development must conform to the authoritative architecture defined in:
+Each file must define explicit development steps:
 
-docs/MASTER_ARCHITECTURE.md
+- Step 1 — Scaffold / Interfaces
+- Step 2 — Core Logic
+- Step 3 — Testing
+- Step 4+ — Integration / Extensions
 
-This document defines:
-- Global naming conventions
-- Module boundaries
-- File responsibilities
-- Allowed cross-file dependencies
-- Current development status
+When a step completes:
 
-If something is not documented there or in a file header, it does not exist.
+- Mark step complete
+- Add date (`YYYY-MM-DD`)
+- List all files affected
 
-========================
-PROJECT SUMMARY
-========================
+---
 
-The application supports:
-- Multiple timer types (fixed, interval, open-ended)
-- Deeply nested timers
-- Sequential and parallel execution
-- Independent audio alarms and background sounds
-- Overlapping sounds
-- Offline-first storage with optional sync
-- Choice of skins to view the timer, forground.
-- Web, Android, and iOS deployment from one codebase
+## 3.3 Inline Comment Rules
 
-High-level architecture:
+Inline comments must:
 
+- Reference step numbers
+- Use terminology defined in this document
+- Avoid introducing undocumented concepts
+
+---
+
+## 3.4 Architectural Constraints
 React UI
-→ Timer Engine (pure logic)
-→ Audio Orchestrator
-→ Persistence Layer
-→ Capacitor Native Bridges
+↓
+Timer Engine (Pure Logic)
+↓
+Audio Orchestrator
+↓
+Persistence Layer
+↓
+Platform Wrappers (Capacitor / PWA)
+### Rules
 
-========================
-WORKING MODE
-========================
+- Timer Engine is UI-agnostic
+- UI never mutates engine state directly
+- Scheduler owns execution transitions
+- Audio reacts to engine events only
+- Persistence owns serialization and migration
+- Platform wrappers contain no business logic
 
-We will address and edit one file at a time.
-For calls that need to be tested in a certain sequence:
-- Placeholders will be used, commented on which stage they are removed.
-- Full code is commented out with note at which stage it is activated.
+---
 
-This Project, current notesFor each task, I will provide:
+# 4. Application Capabilities (Authoritative Scope)
+
+## 4.1 Timer Structure
+
+- Multiple timer types (fixed, interval, open-ended)
+- Deep nesting (tree graph model)
+- Each timer may:
+  - Contain child timers
+  - Define its own sound
+  - Inherit sound from parent
+- Root-level default sound
+- Sound inheritance cascade
+
+## 4.2 Execution Modes
+
+- Sequential stacks
+- Parallel execution branches
+- Parent-dependent duration logic:
+  - Child equals parent duration
+  - Child divides parent into `N` segments
+  - Background audio terminates with parent
+
+## 4.3 Audio
+
+- Independent alarms
+- Background looping
+- Overlapping playback permitted
+- Engine-driven trigger events only
+
+## 4.4 Persistence
+
+- Offline-first storage
+- Multiple saved timers
+- Optional future sync (not yet in scope)
+
+## 4.5 Interface & Visualization
+
+- Multiple saved timer selection
+- Nested timer authoring
+- Sequential vs parallel configuration
+- Start / Pause / Resume / Reset controls
+- Runtime visualization:
+  - Digital countdown
+  - Linear progress bar
+  - Circular / radial fill
+- Skin switching (visual theme layer)
+
+## 4.6 Platform Targets
+
+| Platform | Status |
+|----------|--------|
+| Web | Primary |
+| Android (Capacitor) | Planned |
+| Desktop (PWA install) | Supported |
+| iOS | Deferred |
+
+---
+
+# 5. Source Tree (Authoritative)
+
 src/
-├── audio/                     (added 2026-02-02)
-│   ├── AudioManager.ts        (added 2026-02-03)
-│   └── SoundLibrary.ts        (added 2026-02-03)
+├── audio/
+│ ├── AudioManager.ts
+│ └── SoundLibrary.ts
 │
-├── components/                (added 2026-02-02)
-│   ├── TimerEditor.tsx        (added 2026-02-03)
-│   └── TimerRunner.tsx        (added 2026-02-03)
+├── components/
+│ ├── TimerEditor.tsx
+│ ├── TimerRunner.tsx
+│ ├── TimerSelector.tsx
+│ ├── TimerVisualizer.tsx
+│ └── SkinSelector.tsx
 │
-├── hooks/                     (added 2026-02-02)
-│   └── useTimerEngine.ts      (added 2026-02-03)
+├── hooks/
+│ └── useTimerEngine.ts
 │
-├── models/                    (added 2026-02-02)
-│   ├── TimerTypes.ts          (added 2026-02-03)
-│   └── AudioTypes.ts          (added 2026-02-03)
+├── models/
+│ ├── TimerTypes.ts
+│ └── AudioTypes.ts
 │
-├── services/                  (added 2026-02-02)
-│   └── PersistenceService.ts  (added 2026-02-03)
+├── services/
+│ └── PersistenceService.ts
 │
-├── timers/                    (added 2026-02-02)
-│   ├── TimerNode.ts           (added 2026-02-03)
-│   ├── TimerGraph.ts          (added 2026-02-03)
-│   └── TimerScheduler.ts      (added 2026-02-03)
+├── timers/
+│ ├── TimerNode.ts
+│ ├── TimerGraph.ts
+│ └── TimerScheduler.ts
 │
-├── main.tsx                   (added 2026-02-02)
-└── vite-env.d.ts              (added 2026-02-02)
+├── pwa/
+│ └── registerServiceWorker.ts
+│
+├── main.tsx
+└── vite-env.d.ts
 
-## STEP TRACKING
-
----
-
-## Runtime Verification Matrix
-
-This table is the authoritative progress and verification record.
-Detailed implementation notes live in individual file headers.
-
-Legend:
-- ✅ = Verified
-- ⏳ = In progress
-- N/A = Not applicable for this step
 
 ---
 
-### Step 1 — Project Scaffold & Baseline Architecture
+# 6. Runtime State Machine (Authoritative Definition)
 
-| Item / File | Web | Android | iOS | Status | Completed |
-|------------|-----|---------|-----|--------|-----------|
-| **Step 1 Runtime Gate** | ✅ | N/A | N/A | COMPLETE | 2026-02-05 |
-| `src/main.tsx` | ✅ | N/A | N/A | Complete | 2026-02-04 |
-| `src/vite-env.d.ts` | ✅ | N/A | N/A | Complete | 2026-02-03 |
-| `src/models/TimerTypes.ts` | ✅ | N/A | N/A | Complete | 2026-02-04 |
-| `src/timers/TimerNode.ts` | ✅ | N/A | N/A | Complete | 2026-02-04 |
-| `src/timers/TimerGraph.ts` | ✅ | N/A | N/A | Complete | 2026-02-03 |
-| `src/components/TimerEditor.tsx` | ✅ | N/A | N/A | Complete | 2026-02-03 |
-| `src/components/TimerRunner.tsx` | ✅ | N/A | N/A | Complete | 2026-02-03 |
-| **Error correction & cleanup** | ✅ | N/A | N/A | Complete | 2026-02-05 |
-| **View / Run verification** | Browser loads | N/A | N/A | Verified | 2026-02-05 |
+## 6.1 Purpose
+
+Before expanding UI controls and nested execution behaviors, the execution lifecycle must be formally defined and locked.
+
+This prevents:
+
+- Illegal nested transitions
+- Race conditions
+- UI-engine desynchronization
+- Audio firing outside valid transitions
 
 ---
 
-Step 2 — Timer Engine & Nested Execution Rules
+## 6.2 Allowed Runtime States
 
-| Item / File | Web | Android | iOS | Status | Completed |
-|------------|-----|---------|-----|--------|-----------|
-| **Step 2 Runtime Gate** | ✅ | N/A | N/A | COMPLETE | 2026-02-06 |
-| `src/timers/TimerNode.ts` | ✅ | N/A | N/A | Complete | 2026-02-05 |
-| `src/timers/TimerGraph.ts` | ✅ | N/A | N/A | Complete | 2026-02-05 |
-| `src/models/TimerTypes.ts` | ✅ | N/A | N/A | Complete | 2026-02-05 |
-| `src/timers/TimerScheduler.ts` | ✅ | N/A | N/A | Complete | 2026-02-05 |
-| **Error correction & cleanup** | ✅ | N/A | N/A | Complete | 2026-02-06 |
-| **View / Run verification** | Console-driven | N/A | N/A | Verified | 2026-02-06 |
+DLE
+RUNNING
+PAUSED
+COMPLETED
+Cancell
+---
 
-### Step 3 — Audio & Alarm Layer
+## 6.3 Legal Transitions
 
-| Item / File | Web            | Android | iOS | Status   | Completed  |
-|------------|----------------|---------|-----|----------|------------|
-| **Step 3 Runtime Gate** | WEB   | Complete | 2026-02-07 |
-| `src/audio/AudioManager.ts` | WEB     | Complete | 2026_02-07 |
-| `src/services/AudioService.ts` |  WEB    | Complete | 2026-02-07 |
-| `src/models/TimerTypes.ts` |  WEB   | Planned  | 2026-02-07 |
-| **Error correction & cleanup** |  WEB     | Complete | 2026-02-07 |
-| **View / Run verification** | Audio playback | Web | Complete   |
+| From | To | Allowed |
+|------|----|----------|
+| IDLE | RUNNING | Yes |
+| RUNNING | PAUSED | Yes |
+| PAUSED | RUNNING | Yes |
+| RUNNING | COMPLETED | Yes |
+| COMPLETED | IDLE | Yes (Reset) |
+| Any | IDLE | No (except via Reset from COMPLETED) |
+| COMPLETED | RUNNING | No |
 
 ---
 
-### Step 4 — Persistence & Offline Sync
+## 6.4 Ownership Rules
 
-| Item / File | Systems Web; Android & iOS        | Status | Completed  |
-|------------|----------------|-------|------------|--------|------------|
-| **Step 4 Runtime Gate** | WEB            | Complete | 2026-02-08 |
-| `src/services/PersistenceService.ts` | WEB  | Complete | 2026-02-07 |
-| `src/models/TimerTypes.ts` | WEB            | Complete | 2026-02-08 |
-| **Error correction & cleanup** | WEB            | Complete | 2026-02-08 |
-| **View / Run verification** | Offline reload |  WEB  | Complete | 2026-02-08 |
+- TimerScheduler owns all transitions.
+- UI dispatches events only.
+- TimerNode never mutates global execution state.
+- AudioManager listens to transition events only.
+- Persistence never triggers transitions.
 
----
-
-### Step 5 — Web Deployment (PWA)
-
-| Item / File | Web | Android | iOS | Status   | Completed |
-|------------|-----|---------|-----|----------|-----------|
-| **Step 5 Runtime Gate** | ⏳ | N/A | N/A | Complete | 2026_02-10 |
-| Service worker / manifest | ⏳ | N/A | N/A | Complete  | 2026_02-10 |
-| **Error correction & cleanup** | ⏳ | N/A | N/A | Complete  | 2026_02-10 |
-| **View / Run verification** | Installed PWA | N/A | N/A | Complete  | 2026_02-10 |
+This state machine is locked and may not change without updating this document first.
 
 ---
 
-### Step 6 — Android Wrapper (Capacitor)
-
-| Item / File | Web | Android | iOS | Status | Completed |
-|------------|-----|---------|-----|--------|-----------|
-| **Step 6 Runtime Gate** | N/A | ⏳ | N/A | Planned | — |
-| Android project | N/A | ⏳ | N/A | Planned | — |
-| **Error correction & cleanup** | N/A | ⏳ | N/A | Pending | — |
-| **View / Run verification** | N/A | Emulator / Device | N/A | Pending | — |
+# 7. Step Tracking
 
 ---
 
-### Step 7 — iOS Wrapper (Capacitor)
+## Step 1 — Project Scaffold & Baseline Architecture
 
-| Item / File | Web | Android | iOS | Status | Completed |
-|------------|-----|---------|-----|--------|-----------|
-| **Step 7 Runtime Gate** | N/A | N/A | ⏳ | Planned | — |
-| iOS project | N/A | N/A | ⏳ | Planned | — |
-| **Error correction & cleanup** | N/A | N/A | ⏳ | Pending | — |
-| **View / Run verification** | N/A | N/A | Simulator / Device | Pending | — |
+| File | Platform | Status | Completed |
+|------|----------|--------|-----------|
+| src/main.tsx | Web | COMPLETE | 2026-02-04 |
+| src/vite-env.d.ts | Web | COMPLETE | 2026-02-03 |
+| src/models/TimerTypes.ts | Web | COMPLETE | 2026-02-04 |
+| src/timers/TimerNode.ts | Web | COMPLETE | 2026-02-04 |
+| src/timers/TimerGraph.ts | Web | COMPLETE | 2026-02-03 |
+| src/components/TimerEditor.tsx | Web | COMPLETE | 2026-02-03 |
+| src/components/TimerRunner.tsx | Web | COMPLETE | 2026-02-03 |
 
 ---
 
-### Authoritative Project State
+## Step 2 — Timer Engine & Nested Execution Rules
 
-- **Current Step:** Step 2
-- **Last Completed Step:** Step 1 (2026-02-05)
-- **Build Status:** Clean
-- **Runtime Status:** Web verified
+| File | Platform | Status | Completed |
+|------|----------|--------|-----------|
+| src/timers/TimerNode.ts | Web | COMPLETE | 2026-02-05 |
+| src/timers/TimerGraph.ts | Web | COMPLETE | 2026-02-05 |
+| src/timers/TimerScheduler.ts | Web | COMPLETE | 2026-02-05 |
+
+---
+
+## Step 3 — Audio & Alarm Layer
+
+| File | Platform | Status | Completed |
+|------|----------|--------|-----------|
+| src/audio/AudioManager.ts | Web | COMPLETE | 2026-02-07 |
+| src/audio/SoundLibrary.ts | Web | COMPLETE | 2026-02-07 |
+
+---
+
+## Step 4 — Persistence & Offline Storage
+
+| File | Platform | Status | Completed |
+|------|----------|--------|-----------|
+| src/services/PersistenceService.ts | Web | COMPLETE | 2026-02-07 |
+
+---
+
+## Step 5 — Web Deployment (PWA)
+
+| File | Platform | Status | Completed |
+|------|----------|--------|-----------|
+| public/service-worker.js | Web | COMPLETE | 2026-02-10 |
+| public/manifest.webmanifest | Web | COMPLETE | 2026-02-10 |
+| src/pwa/registerServiceWorker.ts | Web | COMPLETE | 2026-02-10 |
+
+---
+
+## Step 6 — Execution State Machine Lock
+
+**Scope:**
+
+- Formal runtime state definitions
+- Transition validation rules
+- Scheduler transition enforcement
+- UI event contract
+
+| File | Platform | Status | Completed |
+|------|----------|--------|-----------|
+| src/timers/TimerScheduler.ts | Web | IN PROGRESS | — |
+| src/hooks/useTimerEngine.ts | Web | PLANNED | — |
+| src/components/TimerRunner.tsx | Web | PLANNED | — |
+
+---
+
+## Step 7 — User Interface & Timer Management
+
+**Scope:**
+
+- Timer selection and creation
+- Multiple saved timers
+- Nested authoring interface
+- Sequential vs parallel configuration
+- Start / Pause / Resume / Reset controls
+
+| File | Platform | Status | Completed |
+|------|----------|--------|-----------|
+| src/components/TimerSelector.tsx | Web | PLANNED | — |
+| src/components/TimerEditor.tsx | Web | IN PROGRESS | — |
+| src/components/TimerRunner.tsx | Web | IN PROGRESS | — |
+
+---
+
+## Step 8 — Visualization & Skins
+
+**Scope:**
+
+- Digital countdown
+- Bar progress
+- Radial progress
+- Runtime skin switching
+
+| File | Platform | Status | Completed |
+|------|----------|--------|-----------|
+| src/components/TimerVisualizer.tsx | Web | PLANNED | — |
+| src/components/SkinSelector.tsx | Web | PLANNED | — |
+
+---
+
+## Step 9 — Android Wrapper (Capacitor)
+
+| Item | Platform | Status | Completed |
+|------|----------|--------|-----------|
+| Capacitor Android project | Android | PLANNED | — |
+| Runtime verification | Android | PLANNED | — |
+
+---
+
+# Authoritative Project State
+
+- Current Active Step: **Step 6 — Execution State Machine Lock**
+- Build Status: Clean
+- Web Runtime: Verified
+- Android: Not started
+- Desktop (PWA): Supported
+- iOS: Deferred
+
+---
+
+*End of MASTER_ARCHITECTURE.md*
