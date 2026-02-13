@@ -58,7 +58,10 @@ export class AudioManager {
    */
   playAlarm(config: TimerAudioConfig): void {
     // Step 2: resolve asset
+    if (!config.alarmSoundId) return;
+
     const soundAsset = this.soundLibrary.resolve(config.alarmSoundId);
+
 
     // Step 3: placeholder for real playback
     // Activation deferred until AudioService Step 3 completion

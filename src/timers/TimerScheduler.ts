@@ -3,89 +3,146 @@ File: TimerScheduler.ts
 
 Final Intended Purpose:
 - Drives execution of TimerNode trees according to scheduling rules.
-- Owns runtime progression but not persistence or UI concerns.
+- Owns ALL runtime state transitions as defined in Section 6 (Runtime State Machine).
+- Enforces legal state transitions.
+- Prevents illegal execution flows and UI-driven mutations.
 
 Explicit Responsibilities:
 - Execute TimerNode trees in deterministic order.
-- Manage TimerState transitions during execution.
-- Delegate audio signaling to AudioManager (not yet active).
+- Own the authoritative runtime state machine.
+- Validate and enforce legal transitions.
+- Emit transition events for AudioManager (future).
+- Reject illegal transitions.
 
 Connected Files:
 - TimerNode.ts (structure and execution helpers)
-- TimerGraph.ts (entry point for execution)
-- AudioManager.ts (invoked in later steps)
+- TimerGraph.ts (execution entry point)
+- AudioManager.ts (future event subscriber)
+- useTimerEngine.ts (UI dispatch bridge)
 
 Shared Data Models:
-- TimerState
+- TimerState (IDLE, RUNNING, PAUSED, COMPLETED)
 
 Naming Conventions Enforced:
-- Execution methods use imperative verbs.
-- Internal helpers are private and prefixed consistently.
+- Public transition methods use imperative verbs.
+- Internal validation helpers are prefixed with "can".
+- State transition handler is centralized.
 
 Development Steps:
 - Step 1: Scheduler shell (COMPLETE — 2026-02-03)
 - Step 2: Sequential execution (COMPLETE — 2026-02-05)
 - Step 3: Parallel execution (PLANNED)
 - Step 4: Background execution (PLANNED)
+- Step 6: Runtime state machine lock (COMPLETE — 2026-02-11)
 
 Change Log:
-- Step 1 completed on 2026-02-03
-- Step 2 completed on 2026-02-05
-  - Added depth-first sequential execution
-  - Implemented basic state transitions
+- 2026-02-11
+  - Introduced authoritative runtimeState.
+  - Implemented legal transition validation matrix.
+  - Locked illegal transitions.
+  - Removed direct state mutation from start().
 */
 
 import { TimerNode } from './TimerNode';
 import { TimerState } from '../models/TimerTypes';
 
+type RuntimeState =
+  | TimerState.IDLE
+  | TimerState.RUNNING
+  | TimerState.PAUSED
+  | TimerState.COMPLETED;
+
 export class TimerScheduler {
-  private isRunning = false;
+  private runtimeState: RuntimeState = TimerState.IDLE;
+  private root: TimerNode | null = null;
 
-  /**
-   * Step 2:
-   * Starts execution from a root TimerNode.
-   * Sequential execution only.
-   */
+  /* ============================================================
+     PUBLIC API — UI DISPATCH ENTRY POINTS (Step 6)
+     ============================================================ */
+
   start(root: TimerNode): void {
-    // Step 2: Entry point guard
-    if (this.isRunning) {
-      return;
-    }
+    if (!this.canTransitionTo(TimerState.RUNNING)) return;
 
-    this.isRunning = true;
+    this.root = root;
+    this.transition(TimerState.RUNNING);
     this.executeNodeSequentially(root);
   }
 
-  /**
-   * Step 2:
-   * Stops execution immediately.
-   * Does not reset state (handled in later steps).
-   */
-  stop(): void {
-    // Step 2: Hard stop
-    this.isRunning = false;
+  pause(): void {
+    if (!this.canTransitionTo(TimerState.PAUSED)) return;
+    this.transition(TimerState.PAUSED);
   }
 
-  /**
-   * Step 2:
-   * Executes a TimerNode and its children sequentially.
-   * Timing mechanics are intentionally omitted at this stage.
-   */
-  private executeNodeSequentially(node: TimerNode): void {
-    // Step 2: Abort if scheduler stopped
-    if (!this.isRunning) {
-      return;
+  resume(): void {
+    if (!this.canTransitionTo(TimerState.RUNNING)) return;
+    this.transition(TimerState.RUNNING);
+  }
+
+  reset(): void {
+    if (this.runtimeState !== TimerState.COMPLETED) return;
+    this.transition(TimerState.IDLE);
+  }
+
+  getRuntimeState(): RuntimeState {
+    return this.runtimeState;
+  }
+
+  /* ============================================================
+     STATE MACHINE ENFORCEMENT (Step 6)
+     ============================================================ */
+
+  private canTransitionTo(target: RuntimeState): boolean {
+    const current = this.runtimeState;
+
+    switch (current) {
+      case TimerState.IDLE:
+        return target === TimerState.RUNNING;
+
+      case TimerState.RUNNING:
+        return target === TimerState.PAUSED || target === TimerState.COMPLETED;
+
+      case TimerState.PAUSED:
+        return target === TimerState.RUNNING;
+
+      case TimerState.COMPLETED:
+        return target === TimerState.IDLE;
+
+      default:
+        return false;
+    }
+  }
+
+  private transition(target: RuntimeState): void {
+    if (!this.canTransitionTo(target)) {
+      return; // Illegal transition rejected
     }
 
-    // Step 2: State transition — start
+    this.runtimeState = target;
+
+    // Step 6:
+    // AudioManager will subscribe to transition events in future step.
+  }
+
+  /* ============================================================
+     EXECUTION LOGIC (Step 2 + Step 6 Guarding)
+     ============================================================ */
+
+  private executeNodeSequentially(node: TimerNode): void {
+    if (this.runtimeState !== TimerState.RUNNING) return;
+
     node.state = TimerState.RUNNING;
 
-    // Step 2: Execute children in order
     for (const child of node.getExecutableChildren()) {
+      if (this.runtimeState !== TimerState.RUNNING) return;
       this.executeNodeSequentially(child);
     }
 
-    // Step 2: State transition — complete
     node.state = TimerState.COMPLETED;
+
+    // Step 6:
+    // Only scheduler may mark global COMPLETED
+    if (node === this.root) {
+      this.transition(TimerState.COMPLETED);
+    }
   }
 }
