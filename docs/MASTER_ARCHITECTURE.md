@@ -326,11 +326,41 @@ Active Step
 
 | File | Status |
 |------|--------|
-| TimerVisualizer.tsx | PLANNED |
-| SkinSelector.tsx | PLANNED |
+| TimerVisualizer.tsx | COMPLETE | 2026-02-16
+| SkinSelector.tsx | COMPLETE | 2026-02-16
 
 ---
+## Step 8.2 — Progress, Animation, Skin Persistence
 
+Scope:
+
+Real runtime progress tracking
+
+Engine time-based execution enhancement
+
+Visual animation refinement
+
+Skin persistence via PersistenceService
+
+Files Modified:
+
+File	Status	Date
+TimerScheduler.ts	COMPLETE	2026-02-16
+useTimerEngine.ts	COMPLETE	2026-02-16
+TimerVisualizer.tsx	COMPLETE	2026-02-16
+SkinSelector.tsx	COMPLETE	2026-02-16
+PersistenceService.ts	COMPLETE	2026-02-16
+---
+
+
+
+
+
+## Step 8.3 — Functional Web
+
+????????
+
+---
 ## Step 9 — Android Wrapper
 
 | Item | Status |
