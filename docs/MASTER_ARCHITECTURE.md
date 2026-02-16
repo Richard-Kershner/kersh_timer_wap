@@ -309,11 +309,12 @@ Scope:
 
 Active Step
 
-| File | Status |
-|------|--------|
-| TimerSelector.tsx | PLANNED |
-| TimerEditor.tsx | IN PROGRESS |
-| TimerRunner.tsx | IN PROGRESS |
+| File             | Status |
+|------------------|--------|
+| TimerSelector.tsx | COMPLETE | 2026-02-16
+| TimerEditor.tsx  | COMPLETE | 2026-02-16
+| TimerRunner.tsx  | COMPLETE | 2026-02-16
+| error resolve | COMPLETE | 2026-02-16
 
 ---
 
