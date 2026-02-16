@@ -233,7 +233,11 @@ State machine changes require updating this document first.
 ---
 
 # 7. Step Tracking
-
+  - each step must generate 
+    - all requested files for the step
+    - Once all files have been uploaded
+      - complete code for each file being changed
+  - All files being reference must have complete path
 ---
 
 ## Step 1 — Scaffold
@@ -338,7 +342,7 @@ Active Step
 
 # Authoritative Project State
 
-- **Current Active Step:** Step 7 — UI & Timer Management
+- **Current Active Step:** Step 8 — UI & Timer Management
 - Build Status: Clean
 - Web Runtime: Verified
 - Android: Not started
