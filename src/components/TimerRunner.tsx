@@ -1,65 +1,64 @@
-/*
-File: TimerRunner.tsx
-
-Final Intended Purpose:
-- UI control surface for execution lifecycle.
-- Dispatches events to useTimerEngine.
-- Never mutates engine state directly.
-
-Explicit Responsibilities:
-- Render state-aware control buttons.
-- Enforce state machine contract.
-- Guard against missing root timer.
-
-Connected Files:
-- useTimerEngine.ts
-- TimerTypes.ts
-- TimerNode.ts
-
-Development Steps:
-- Step 1: Component scaffold (COMPLETE — 2026-02-03)
-- Step 6: Runtime state controls (COMPLETE — 2026-02-11)
-- Step 7: Root guard + display (COMPLETE — 2026-02-13)
-
-Change Log:
-- 2026-02-13
-  - Added root guard.
-*/
-
 import { TimerNode } from '../timers/TimerNode';
 import { TimerState } from '../models/TimerTypes';
 import { useTimerEngine } from '../hooks/useTimerEngine';
 
 interface Props {
-  root?: TimerNode;
+  root: TimerNode;
+}
+
+function format(ms: number) {
+  return (ms / 1000).toFixed(1) + 's';
 }
 
 export function TimerRunner({ root }: Props) {
-  const { runtimeState, start, pause, resume, reset } = useTimerEngine();
+  const { runtimeState, start, pause, resume, reset, scheduler } =
+    useTimerEngine();
 
-  if (!root) {
-    return <div>No timer selected.</div>;
-  }
+  const active = scheduler.getActiveNode();
+
+  const renderNode = (node: TimerNode, depth = 0) => {
+    const remaining = scheduler.getRemainingMs(node);
+    const isActive = active === node;
+
+    return (
+      <div key={node.config.id} style={{ marginLeft: depth * 20 }}>
+        <div
+          style={{
+            padding: 6,
+            background: isActive ? '#222' : '#444',
+            color: 'white',
+            marginBottom: 4,
+          }}
+        >
+          {node.config.name} — {format(remaining)}
+        </div>
+        {node
+          .getExecutableChildren()
+          .map((child) => renderNode(child, depth + 1))}
+      </div>
+    );
+  };
 
   return (
-    <div>
-      <div>Runtime State: {runtimeState}</div>
+    <div style={{ fontFamily: 'sans-serif' }}>
+      <h2>Functional Demo</h2>
 
-      {runtimeState === TimerState.IDLE && (
-        <button onClick={() => start(root)}>Start</button>
-      )}
+      {root.getExecutableChildren().map((node) => renderNode(node))}
 
-      {runtimeState === TimerState.RUNNING && (
-        <button onClick={pause}>Pause</button>
-      )}
-
-      {runtimeState === TimerState.PAUSED && (
-        <button onClick={resume}>Resume</button>
-      )}
-
-      {runtimeState === TimerState.COMPLETED && (
-        <button onClick={reset}>Reset</button>
-      )}
+      <div style={{ marginTop: 20 }}>
+        {runtimeState === TimerState.IDLE && (
+          <button onClick={() => start(root)}>Start</button>
+        )}
+        {runtimeState === TimerState.RUNNING && (
+          <button onClick={pause}>Pause</button>
+        )}
+        {runtimeState === TimerState.PAUSED && (
+          <button onClick={resume}>Resume</button>
+        )}
+        {runtimeState === TimerState.COMPLETED && (
+          <button onClick={reset}>Reset</button>
+        )}
+      </div>
     </div>
   );
 }

@@ -353,15 +353,13 @@ PersistenceService.ts	COMPLETE	2026-02-16
 ---
 
 
-
-
-
-## Step 8.3 — Functional Web
-
-????????
+## Step 9 — Functional demo
+TimerScheduler.ts
+TimerRunner.tsx
+main.tsx
 
 ---
-## Step 9 — Android Wrapper
+## Step 10 — Android Wrapper
 
 | Item | Status |
 |------|--------|

@@ -50,11 +50,16 @@ export interface TimerConfig {
   durationMs?: number;
   divideParentInto?: number;
 
+  // Step 9 — Functional Demo
+  // If set, this node behaves as a repeating interval trigger
+  intervalMs?: number;
+
   sequential?: boolean;
   children?: TimerConfig[];
 
   audio?: TimerAudioConfig;
 }
+
 
 /* ============================================================
    AUDIO MODELS (Step 3 Contract)

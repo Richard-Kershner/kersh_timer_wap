@@ -1,54 +1,44 @@
-/*
-===============================================================================
-FILE: src/main.tsx
-===============================================================================
-FINAL PURPOSE:
-Application entry point for the Kersh Timer web application.
-
-RESPONSIBILITIES:
-- Bootstrap the React application
-- Attach the root React tree to the DOM
-- Register web-only infrastructure (PWA service worker)
-
-CONNECTED FILES:
-- Renders (placeholder): React component tree
-- Calls: src/pwa/registerServiceWorker.ts
-- Future integration targets:
-  - src/components/TimerEditor.tsx
-  - src/components/TimerRunner.tsx
-
-SHARED DATA MODELS:
-- None
-
-NAMING CONVENTIONS:
-- Entry-point file
-- No exported symbols
-- Side-effect–driven initialization only
-
-DEVELOPMENT STEPS:
-- Step 1: App bootstrap
-- Step 2: Routing (planned)
-- Step 3: Global providers (planned)
-- Step 5: PWA registration (web-only)
-
-CHANGE LOG:
-- Step 1 completed on 2026-02-03
-- Step 5 completed on 2026-02-10 — Added service worker registration
-===============================================================================
-*/
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-
-// Step 5: PWA service worker registration
+import { TimerNode } from './timers/TimerNode';
+import { TimerRunner } from './components/TimerRunner';
 import { registerServiceWorker } from './pwa/registerServiceWorker';
 
-// Step 1: App bootstrap
+// Demo tree
+const timerA = new TimerNode({
+  id: 'a',
+  name: 'Timer A',
+  durationMs: 10000,
+});
+
+const timerB = new TimerNode({
+  id: 'b',
+  name: 'Timer B',
+  durationMs: 20000,
+});
+
+const intervalChild = new TimerNode({
+  id: 'b-int',
+  name: '2s Interval',
+  durationMs: 0,
+  intervalMs: 2000,
+});
+
+timerB.addChild(intervalChild);
+
+const root = new TimerNode({
+  id: 'root',
+  name: 'Root',
+  durationMs: 0,
+});
+
+root.addChild(timerA);
+root.addChild(timerB);
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <div>Kersh Timer</div>
+    <TimerRunner root={root} />
   </React.StrictMode>,
 );
 
-// Step 5: Register service worker after React bootstrap
 registerServiceWorker();
