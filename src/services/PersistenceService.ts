@@ -130,4 +130,10 @@ export class PersistenceService {
   static async loadSkin(): Promise<string | null> {
     return await getItem(SKIN_KEY);
   }
+  /* Step 10, Multiple save, load and edit timers */
+  static async exportTimerJSON(timerId: string): Promise<string | null> {
+    const loaded = await this.loadTimer(timerId);
+    if (!loaded) return null;
+    return JSON.stringify(loaded.config, null, 2);
+  }
 }

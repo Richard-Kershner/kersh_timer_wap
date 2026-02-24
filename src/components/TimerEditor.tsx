@@ -1,38 +1,3 @@
-/*
-File: TimerEditor.tsx
-
-Final Intended Purpose:
-- UI for creating and editing TimerConfig objects.
-- Saves timers via PersistenceService.
-- Does not interact with runtime engine.
-
-Explicit Responsibilities:
-- Create new timer configs.
-- Edit name and duration.
-- Persist TimerConfig.
-- Emit save completion event.
-
-Connected Files:
-- PersistenceService.ts
-- TimerTypes.ts
-
-Shared Data Models:
-- TimerConfig
-- TimerState
-
-Development Steps:
-- Step 1: Scaffold (COMPLETE — 2026-02-03)
-- Step 2: Form logic (COMPLETE — 2026-02-13)
-- Step 3: Basic validation (COMPLETE — 2026-02-13)
-- Step 7 Fix: durationMs alignment (COMPLETE — 2026-02-13)
-
-Change Log:
-- 2026-02-13
-  - Implemented controlled form.
-  - Added save logic.
-  - Corrected duration to durationMs.
-*/
-
 import { useEffect, useState } from 'react';
 import { TimerConfig, TimerState } from '../models/TimerTypes';
 import { PersistenceService } from '../services/PersistenceService';
@@ -53,12 +18,7 @@ export function TimerEditor({ selected, onSaved }: Props) {
   useEffect(() => {
     if (selected) {
       setName(selected.name ?? '');
-      setDurationSeconds(
-        selected.durationMs ? selected.durationMs / 1000 : 60,
-      );
-    } else {
-      setName('');
-      setDurationSeconds(60);
+      setDurationSeconds(selected.durationMs ? selected.durationMs / 1000 : 60);
     }
   }, [selected]);
 
@@ -66,39 +26,33 @@ export function TimerEditor({ selected, onSaved }: Props) {
     if (!name.trim()) return;
 
     const config: TimerConfig = {
-      id: selected?.id ?? generateId(),
+      id: selected?.id || generateId(),
       name,
       durationMs: durationSeconds * 1000,
     };
 
-    const initialState: TimerState = TimerState.IDLE;
+    const json = JSON.stringify(config, null, 2);
+    console.log('Saved JSON:', json);
 
-    await PersistenceService.saveTimer(config, initialState);
+    await PersistenceService.saveTimer(config, TimerState.IDLE);
     onSaved();
   }
 
   return (
-    <div>
-      <h3>{selected ? 'Edit Timer' : 'New Timer'}</h3>
+    <div style={{ marginTop: 20 }}>
+      <h3>{selected?.id ? 'Edit Timer' : 'New Timer'}</h3>
 
-      <div>
-        <label>Name:</label>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </div>
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Timer name"
+      />
 
-      <div>
-        <label>Duration (seconds):</label>
-        <input
-          type="number"
-          value={durationSeconds}
-          onChange={(e) =>
-            setDurationSeconds(Number(e.target.value))
-          }
-        />
-      </div>
+      <input
+        type="number"
+        value={durationSeconds}
+        onChange={(e) => setDurationSeconds(Number(e.target.value))}
+      />
 
       <button onClick={handleSave}>Save</button>
     </div>

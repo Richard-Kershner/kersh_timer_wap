@@ -1,383 +1,168 @@
-# Kersh Timer — Master Architecture Document
+Kersh Timer — Master Architecture Document
 
-> Authoritative Architecture & Development Control Document  
-> If something is not defined here or in a file header, it does **not** exist.
-
----
-
-# 1. Project Overview
-
-**Kersh Timer** is a deterministic, offline-first, nested timer engine.
-
-### Platforms
-- Web (Primary runtime)
+Authoritative Architecture & Development Control Document.
+- This document must maintain strict mark down language rules
+- Project can be referenced at https://github.com/Richard-Kershner/kersh_timer_wap
+# Project Overview
+Kersh Timer is a deterministic, offline-first, nested timer engine.
+## Platforms
+- Web (Canonical runtime)
 - Android (Capacitor wrapper)
 - Desktop (PWA install)
 - iOS (Deferred)
-
-### Design Priorities
+## Design Priorities
 - Deterministic execution
 - Explicit state ownership
 - Strict module boundaries
-- No hidden cross-module mutation
+- No hidden mutation
 - Long-term maintainability
-
-Web is canonical.  
-All other platforms wrap the web build only.
-
----
-
-# 2. Document Authority
-
-This document defines:
-
+- Web build is the single source of truth.
+- Cool visual skin options
+## Document Authority
 - Architecture contract
 - Development sequence
-- Module boundaries
-- File ownership
+- File, Module and Process Ownership boundaries
 - Runtime state machine
+- ChatGPT Operational Rules
+## Global Development Rules
+- clear header remarks describing use
+- inline remarks on all code
+- remarks should be none verbose and complete
+## All classes and processes must be tracked in this document:
+Current classeses
+### src/audio/AudioManager.ts (audioService: AudioService; soundLibrary: SoundLibrary)
+Used by: TimerScheduler; AudioService 
+– constructor(audioService: AudioService; soundLibrary: SoundLibrary)
+Used by ext: application bootstrap / dependency injector
+– playAlarm(config: TimerAudioConfig)
+Used by ext: TimerScheduler
+– startBackground(config: TimerAudioConfig)
+Used by: TimerScheduler
+– stopAll(none)
+Used by ext: TimerScheduler
+– registerActive(channel: AudioChannelType; assetId: string)
+Used by: internal only
+### src/audio/SoundLibrary.ts (none)
+Used by: AudioManager
+– resolve(soundId: string)
+Uses ext: none
+Used by: AudioManager
+### src/components/TimerEditor.tsx (selected?: TimerConfig; onSaved: () => void)
+Used by: Parent UI container (renders TimerEditor; passes selected & onSaved)
+– generateId(none)
+Used by: TimerEditor
+– TimerEditor(selected?: TimerConfig; onSaved: () => void)
+Used by: Parent UI container
+– handleSave(none)
+Used by: TimerEditor (Save button onClick)
+### src/components/TimerRunner.tsx (root: TimerNode)
+Used by: Parent UI container (functional demo view)
+– format(ms: number)
+Used by: TimerRunner
+– TimerRunner(root: TimerNode)
+Used by: Parent UI container
+– renderNode(node: TimerNode; depth: number)
+Used by: TimerRunner
+### src/components/TimerSelector.tsx (onSelect: (config: TimerConfig) => void)
+Used byt: Parent UI container (receives selected TimerConfig)
+– TimerSelector(onSelect: (config: TimerConfig) => void)
+Used by: Parent UI container
+– loadTimers(none)
+Used by: TimerSelector (useEffect; handleDelete)
+– handleDelete(id: string)
+Used by: TimerSelector (Delete button onClick)
+### src/hooks/useTimerEngine.ts (none)
+Used by: TimerRunner
+– useTimerEngine(none)
+Used by: TimerRunner
+### src/models/AudioTypes.ts (none)
+Used by: AudioManager; SoundLibrary
+– SoundRef(id: string; uri: string)
+Used by: AudioConfig
+– AudioConfig(alarmSound?: SoundRef; backgroundSound?: SoundRef; loopBackground?: boolean)
+Used by: AudioManager
+### src/models/TimerTypes.ts (none)
+Used by ext: TimerScheduler; TimerNode; AudioManager; PersistenceService; useTimerEngine; TimerRunner; TimerEditor; TimerSelector; AudioService
+– TimerState(enum)
+Used by: TimerScheduler; useTimerEngine; TimerRunner; TimerEditor; PersistenceService
+– TimerConfig(id: string; name: string; durationMs?: number; divideParentInto?: number; intervalMs?: number; sequential?: boolean; children?: TimerConfig[]; audio?: TimerAudioConfig)
+Used by: TimerNode; PersistenceService; TimerEditor; TimerSelector; TimerScheduler
+– AudioChannelType(enum)
+Used by ext: AudioManager; AudioService
+– TimerAudioConfig(alarmSoundId?: string; backgroundSoundId?: string; backgroundLoop?: boolean; volume?: number)
+Used by: AudioManager; TimerConfig
+### src/pwa
+src/pwa/registerServiceWorker.ts (none)
+Used by ext: main.tsx
+– registerServiceWorker(none)
+Used by ext: main.tsx
+### src/services/AudioService.ts (none)
+Used by ext: AudioManager
+Uses ext: AudioChannelType
+– play(assetId: string; channel: AudioChannelType)
+Used by: AudioManager
+– playLoop(assetId: string; channel: AudioChannelType)
+Used by: AudioManager
+– stopChannel(channel: AudioChannelType)
+Used by: AudioManager
+### src/services/PersistenceService.ts (none)
+Used by: TimerEditor; TimerSelector; TimerGraph; TimerNode; AudioManager; SkinSelector
+– setItem(key: string; value: string)
+Used by: PersistenceService
+– getItem(key: string)
+Used by: PersistenceService
+– removeItem(key: string)
+Used by: PersistenceService
+– saveTimer(timer: TimerConfig; state: TimerState)
+Used by: TimerEditor
+– loadTimer(timerId: string)
+Used by: external callers
+– loadAllTimers(none)
+Used by: TimerSelector
+– deleteTimer(timerId: string)
+Used by: TimerSelector
+– syncTimers(none)
+Used by: none
+– saveSkin(skin: string)
+Used by: SkinSelector
+– loadSkin(none)
+Used by: SkinSelector
+### src/timers/TimerGraph.ts (root: TimerNode)
+Used by: TimerScheduler; diagnostics tooling
+– constructor(root: TimerNode)
+Used by: external graph creator (e.g., TimerScheduler bootstrap)
+– traverseDepthFirst(visitor: (node: TimerNode) => void)
+Used by: collectAllNodes; collectLeafNodes; TimerScheduler
+– collectAllNodes(none)
+Used by: TimerScheduler; diagnostics
+– collectLeafNodes(none)
+Used by: TimerScheduler
+### src/timers/TimerNode.ts (config: TimerConfig)
+Used by: TimerGraph; TimerScheduler; TimerRunner; main.tsx
+– constructor(config: TimerConfig)
+Used by: TimerGraph; main.tsx
+– addChild(child: TimerNode)
+Used by: TimerGraph; main.tsx
+– getExecutableChildren(none)
+Used by: TimerScheduler; TimerRunner
+– hasChildren(none)
+Used by: TimerGraph; TimerSchedule
+### src/main.tsx (none)
+Used by: index.html (script entry point)
+– Demo construction block(timer configs inline)
+Used by: main.tsx only
+– ReactDOM.createRoot(element: HTMLElement).render(component: ReactNode)
+Used by: main.tsx
+– registerServiceWorker(none)
+Used by: main.tsx
+### src/vite-env.d.ts (none)
+Used by: TypeScript compiler
+– reference directive(/// <reference types="vite/client" />)
+Used by: TypeScript compiler
+### index.html (none)
+Used by: Browser (application entry)
+– div#root(none)
+Used by: main.tsx
+– script(type="module" src="/src/main.tsx")
+Used by: Browser module loader
 
-### ChatGPT Rules
-
-- Only work on the active step.
-- Only modify files owned by the active step.
-- No architectural changes without updating this document first.
-- This file must remain:
-  - Markdown (`.md`)
-  - Single copy/paste output
-  - Terminology consistent
-
----
-
-# 3. Global Development Rules
-
-## 3.1 File Header Contract (Mandatory)
-
-Every source file must define:
-
-- Final intended purpose
-- Explicit responsibilities
-- Connected files
-- Shared data models
-- Naming conventions
-- Development steps
-- Step completion log
-
-No code before header.
-
----
-
-## 3.2 Step Definitions
-
-Each file uses:
-
-- Step 1 — Scaffold / Interfaces
-- Step 2 — Core Logic
-- Step 3 — Testing
-- Step 4+ — Extensions
-
-When a step completes:
-- Mark complete
-- Add date (`YYYY-MM-DD`)
-- List affected files
-
----
-
-## 3.3 Architecture Layers
-
-React UI
-↓
-Timer Engine (Pure Logic)
-↓
-Audio Orchestrator
-↓
-Persistence Layer
-↓
-Platform Wrappers
-
-
-### Rules
-
-- Timer Engine is UI-agnostic.
-- UI dispatches events only.
-- TimerScheduler owns transitions.
-- Audio reacts to engine events only.
-- Persistence handles storage only.
-- Wrappers contain no business logic.
-
----
-
-# 4. Application Capabilities
-
-## 4.1 Timer Structure
-
-- Fixed / interval / open-ended timers
-- Deep nesting (tree model)
-- Sequential or parallel execution
-- Parent-dependent duration logic
-- Sound inheritance cascade
-- Root-level default sound
-
----
-
-## 4.2 Audio
-
-- Alarm sounds
-- Background looping
-- Overlapping playback allowed
-- Triggered only by engine events
-
----
-
-## 4.3 Persistence
-
-- Offline-first
-- Multiple saved timers
-- No sync (future scope)
-
----
-
-## 4.4 UI
-
-- Timer selection
-- Nested authoring
-- Execution controls:
-  - Start
-  - Pause
-  - Resume
-  - Reset
-- Visualization:
-  - Digital countdown
-  - Linear bar
-  - Radial progress
-- Skin switching
-
----
-
-# 5. Source Tree (Authoritative)
-
-src/
-├── audio/
-│ ├── AudioManager.ts
-│ └── SoundLibrary.ts
-│
-├── components/
-│ ├── TimerEditor.tsx
-│ ├── TimerRunner.tsx
-│ ├── TimerSelector.tsx
-│ ├── TimerVisualizer.tsx
-│ └── SkinSelector.tsx
-│
-├── hooks/
-│ └── useTimerEngine.ts
-│
-├── models/
-│ └── TimerTypes.ts
-│
-├── services/
-│ └── PersistenceService.ts
-│
-├── timers/
-│ ├── TimerNode.ts
-│ ├── TimerGraph.ts
-│ └── TimerScheduler.ts
-│
-├── pwa/
-│ └── registerServiceWorker.ts
-│
-├── main.tsx
-└── vite-env.d.ts
-
-
----
-
-# 6. Runtime State Machine (Locked)
-
-## 6.1 Allowed States
-
-- `IDLE`
-- `RUNNING`
-- `PAUSED`
-- `COMPLETED`
-
-No other states exist.
-
----
-
-## 6.2 Legal Transitions
-
-| From | To | Allowed |
-|------|----|----------|
-| IDLE | RUNNING | Yes |
-| RUNNING | PAUSED | Yes |
-| PAUSED | RUNNING | Yes |
-| RUNNING | COMPLETED | Yes |
-| COMPLETED | IDLE | Yes (Reset only) |
-| COMPLETED | RUNNING | No |
-| Any | IDLE | No (except via Reset) |
-
-All transitions are validated by **TimerScheduler**.
-
----
-
-## 6.3 Ownership
-
-- Scheduler owns transitions.
-- UI dispatches only.
-- TimerNode does not mutate global state.
-- Audio listens only.
-- Persistence never triggers transitions.
-
-State machine changes require updating this document first.
-
----
-
-# 7. Step Tracking
-  - each step must generate 
-    - all requested files for the step
-    - Once all files have been uploaded
-      - complete code for each file being changed
-  - All files being reference must have complete path
----
-
-## Step 1 — Scaffold
-
-| File | Status | Date |
-|------|--------|------|
-| main.tsx | COMPLETE | 2026-02-04 |
-| vite-env.d.ts | COMPLETE | 2026-02-03 |
-| TimerTypes.ts | COMPLETE | 2026-02-04 |
-| TimerNode.ts | COMPLETE | 2026-02-04 |
-| TimerGraph.ts | COMPLETE | 2026-02-03 |
-| TimerEditor.tsx | COMPLETE | 2026-02-03 |
-| TimerRunner.tsx | COMPLETE | 2026-02-03 |
-
----
-
-## Step 2 — Engine Logic
-
-| File | Status | Date |
-|------|--------|------|
-| TimerNode.ts | COMPLETE | 2026-02-05 |
-| TimerGraph.ts | COMPLETE | 2026-02-05 |
-| TimerScheduler.ts | COMPLETE | 2026-02-05 |
-
----
-
-## Step 3 — Audio Layer
-
-| File | Status | Date |
-|------|--------|------|
-| AudioManager.ts | COMPLETE | 2026-02-07 |
-| SoundLibrary.ts | COMPLETE | 2026-02-07 |
-
----
-
-## Step 4 — Persistence
-
-| File | Status | Date |
-|------|--------|------|
-| PersistenceService.ts | COMPLETE | 2026-02-07 |
-
----
-
-## Step 5 — PWA
-
-| File | Status | Date |
-|------|--------|------|
-| service-worker.js | COMPLETE | 2026-02-10 |
-| manifest.webmanifest | COMPLETE | 2026-02-10 |
-| registerServiceWorker.ts | COMPLETE | 2026-02-10 |
-
----
-
-## Step 6 — State Machine Lock
-
-Scope:
-- Runtime state definitions
-- Transition validation
-- Scheduler enforcement
-- UI dispatch contract
-
-| File | Status | Date |
-|------|--------|------|
-| TimerScheduler.ts | COMPLETE | 2026-02-11 |
-| useTimerEngine.ts | COMPLETE | 2026-02-11 |
-| TimerRunner.tsx | COMPLETE | 2026-02-11 |
-| TimerTypes.ts | COMPLETE | 2026-02-11 |
-| AudioManager.ts | COMPLETE | 2026-02-11 |
-
----
-
-## Step 7 — UI & Timer Management
-
-Active Step
-
-| File             | Status |
-|------------------|--------|
-| TimerSelector.tsx | COMPLETE | 2026-02-16
-| TimerEditor.tsx  | COMPLETE | 2026-02-16
-| TimerRunner.tsx  | COMPLETE | 2026-02-16
-| error resolve | COMPLETE | 2026-02-16
-
----
-
-## Step 8 — Visualization
-
-| File | Status |
-|------|--------|
-| TimerVisualizer.tsx | COMPLETE | 2026-02-16
-| SkinSelector.tsx | COMPLETE | 2026-02-16
-
----
-## Step 8.2 — Progress, Animation, Skin Persistence
-
-Scope:
-
-Real runtime progress tracking
-
-Engine time-based execution enhancement
-
-Visual animation refinement
-
-Skin persistence via PersistenceService
-
-Files Modified:
-
-File	Status	Date
-TimerScheduler.ts	COMPLETE	2026-02-16
-useTimerEngine.ts	COMPLETE	2026-02-16
-TimerVisualizer.tsx	COMPLETE	2026-02-16
-SkinSelector.tsx	COMPLETE	2026-02-16
-PersistenceService.ts	COMPLETE	2026-02-16
----
-
-
-## Step 9 — Functional demo
-TimerScheduler.ts
-TimerRunner.tsx
-main.tsx
-
----
-## Step 10 — Android Wrapper
-
-| Item | Status |
-|------|--------|
-| Capacitor Android project | PLANNED |
-| Runtime verification | PLANNED |
-
----
-
-# Authoritative Project State
-
-- **Current Active Step:** Step 8 — UI & Timer Management
-- Build Status: Clean
-- Web Runtime: Verified
-- Android: Not started
-- Desktop: Supported
-- iOS: Deferred
-
----
-
-End of MASTER_ARCHITECTURE.md
-If you'd like, I can now:

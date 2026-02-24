@@ -31,6 +31,7 @@ export function TimerRunner({ root }: Props) {
           }}
         >
           {node.config.name} — {format(remaining)}
+          <button style={{ marginLeft: 10 }}>≡</button>
         </div>
         {node
           .getExecutableChildren()
@@ -40,8 +41,8 @@ export function TimerRunner({ root }: Props) {
   };
 
   return (
-    <div style={{ fontFamily: 'sans-serif' }}>
-      <h2>Functional Demo</h2>
+    <div>
+      <h2>Runner</h2>
 
       {root.getExecutableChildren().map((node) => renderNode(node))}
 
