@@ -1,60 +1,135 @@
-import { useEffect, useState } from 'react';
-import { TimerConfig, TimerState } from '../models/TimerTypes';
-import { PersistenceService } from '../services/PersistenceService';
+/*
+===============================================================================
+FILE: src/components/TimerEditor.tsx
+
+Step 11:
+- Full window edit mode
+- Supports editing sub timers
+- Allows:
+    duration
+    interval
+    increment
+    sound
+- Save / Delete / Cancel returns to main window
+===============================================================================
+*/
+
+import { useState } from 'react';
+import { TimerConfig } from '../models/TimerTypes';
 
 interface Props {
-  selected?: TimerConfig;
-  onSaved: () => void;
+  config: TimerConfig;
+  onSave: (config: TimerConfig) => void;
+  onDelete: (id: string) => void;
+  onCancel: () => void;
 }
 
-function generateId(): string {
-  return crypto.randomUUID();
-}
+export function TimerEditor({ config, onSave, onDelete, onCancel }: Props) {
+  const [local, setLocal] = useState<TimerConfig>(config);
 
-export function TimerEditor({ selected, onSaved }: Props) {
-  const [name, setName] = useState<string>('');
-  const [durationSeconds, setDurationSeconds] = useState<number>(60);
+  function updateField<K extends keyof TimerConfig>(
+    key: K,
+    value: TimerConfig[K],
+  ) {
+    setLocal({ ...local, [key]: value });
+  }
 
-  useEffect(() => {
-    if (selected) {
-      setName(selected.name ?? '');
-      setDurationSeconds(selected.durationMs ? selected.durationMs / 1000 : 60);
-    }
-  }, [selected]);
+  function updateChild(index: number, child: TimerConfig) {
+    const children = [...(local.children || [])];
+    children[index] = child;
+    setLocal({ ...local, children });
+  }
 
-  async function handleSave(): Promise<void> {
-    if (!name.trim()) return;
-
-    const config: TimerConfig = {
-      id: selected?.id || generateId(),
-      name,
-      durationMs: durationSeconds * 1000,
-    };
-
-    const json = JSON.stringify(config, null, 2);
-    console.log('Saved JSON:', json);
-
-    await PersistenceService.saveTimer(config, TimerState.IDLE);
-    onSaved();
+  function addChild() {
+    const children = [...(local.children || [])];
+    children.push({
+      id: crypto.randomUUID(),
+      name: 'New Sub Timer',
+      durationMs: 5000,
+    });
+    setLocal({ ...local, children });
   }
 
   return (
-    <div style={{ marginTop: 20 }}>
-      <h3>{selected?.id ? 'Edit Timer' : 'New Timer'}</h3>
+    <div style={{ padding: 20 }}>
+      <h2>Edit Timer</h2>
 
+      <label>Name</label>
       <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Timer name"
+        value={local.name}
+        onChange={(e) => updateField('name', e.target.value)}
       />
 
+      <label>Duration (ms)</label>
       <input
         type="number"
-        value={durationSeconds}
-        onChange={(e) => setDurationSeconds(Number(e.target.value))}
+        value={local.durationMs}
+        onChange={(e) => updateField('durationMs', Number(e.target.value))}
       />
 
-      <button onClick={handleSave}>Save</button>
+      <label>Interval (ms)</label>
+      <input
+        type="number"
+        value={local.intervalMs || 0}
+        onChange={(e) => updateField('intervalMs', Number(e.target.value))}
+      />
+
+      <label>Increment (ms)</label>
+      <input
+        type="number"
+        value={local.incrementMs || 0}
+        onChange={(e) => updateField('incrementMs', Number(e.target.value))}
+      />
+
+      <label>Sound</label>
+      <select
+        value={local.sound || ''}
+        onChange={(e) => updateField('sound', e.target.value)}
+      >
+        <option value="">None</option>
+        <option value="beep.mp3">Beep</option>
+        <option value="chime.mp3">Chime</option>
+        <option value="alert.mp3">Alert (New)</option>
+      </select>
+
+      <h3>Sub Timers</h3>
+
+      {local.children?.map((child, i) => (
+        <div key={child.id} style={{ marginBottom: 10 }}>
+          <input
+            value={child.name}
+            onChange={(e) =>
+              updateChild(i, {
+                ...child,
+                name: e.target.value,
+              })
+            }
+          />
+
+          <button
+            onClick={() =>
+              updateChild(i, {
+                ...child,
+                durationMs: child.durationMs + 1000,
+              })
+            }
+          >
+            +1s
+          </button>
+        </div>
+      ))}
+
+      <button onClick={addChild}>+ Add Sub Timer</button>
+
+      <hr />
+
+      <button onClick={() => onSave(local)}>Save</button>
+
+      {!local.isDefault && (
+        <button onClick={() => onDelete(local.id)}>Delete</button>
+      )}
+
+      <button onClick={onCancel}>Cancel</button>
     </div>
   );
 }

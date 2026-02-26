@@ -407,6 +407,15 @@ PersistenceService.ts
 FILES ADDED
 TimerManager.tsx
 
+
+**Development Step 11**
+Edit timer.  The edit of each main timer should be a full window change.
+- When Save, drop changes and delete is clicked, it goes back to the main window.
+- default alarms can not be changed or deleted.  If changed in the edit window and saved, a new alarm has to be created.
+- Sub timer edit button with 3 bars needs to be functional
+- All edits of any alarm, main or sub alarm, must allow chaning of the time, if increment then the increments and the sound
+- Add in a new sound file with instructions on how to add it into the project
+
 Step ?? — Android Wrapper
 
 Status: Planned
