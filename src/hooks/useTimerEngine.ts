@@ -6,12 +6,13 @@ import { TimerState } from '../models/TimerTypes';
 export function useTimerEngine() {
   const schedulerRef = useRef(new TimerScheduler());
   const [runtimeState, setRuntimeState] = useState<TimerState>(TimerState.IDLE);
-  const [, forceUpdate] = useState(0);
+  const [, setTick] = useState(0);
 
   useEffect(() => {
     const id = setInterval(() => {
-      setRuntimeState(schedulerRef.current.getRuntimeState());
-      forceUpdate((n) => n + 1);
+      const state = schedulerRef.current.getRuntimeState();
+      setRuntimeState(state);
+      setTick((n) => n + 1); // force repaint
     }, 100);
 
     return () => clearInterval(id);

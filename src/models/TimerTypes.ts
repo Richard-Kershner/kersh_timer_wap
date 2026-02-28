@@ -72,3 +72,12 @@ export interface TimerAudioConfig {
   /* Optional channel override */
   channel?: AudioChannelType;
 }
+
+/* ============================================================================
+   STEP 12 ADDITIONS (No versioning)
+============================================================================ */
+
+export interface TimerConfig {
+  repeatCount?: number;
+  category?: string;
+}

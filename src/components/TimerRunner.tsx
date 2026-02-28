@@ -24,15 +24,17 @@ export function TimerRunner({ root }: Props) {
       <div key={node.config.id} style={{ marginLeft: depth * 20 }}>
         <div
           style={{
-            padding: 6,
-            background: isActive ? '#222' : '#444',
-            color: 'white',
+            padding: 8,
             marginBottom: 4,
+            background: isActive ? '#1f2937' : '#374151',
+            color: 'white',
+            borderRadius: 4,
           }}
         >
-          {node.config.name} — {format(remaining)}
-          <button style={{ marginLeft: 10 }}>≡</button>
+          <strong>{node.config.name}</strong>
+          <span style={{ marginLeft: 10 }}>{format(remaining)}</span>
         </div>
+
         {node
           .getExecutableChildren()
           .map((child) => renderNode(child, depth + 1))}
@@ -41,21 +43,25 @@ export function TimerRunner({ root }: Props) {
   };
 
   return (
-    <div>
-      <h2>Runner</h2>
+    <div style={{ marginTop: 20 }}>
+      <h2>Timer</h2>
 
-      {root.getExecutableChildren().map((node) => renderNode(node))}
+      {/* Root must render itself */}
+      {renderNode(root)}
 
       <div style={{ marginTop: 20 }}>
         {runtimeState === TimerState.IDLE && (
           <button onClick={() => start(root)}>Start</button>
         )}
+
         {runtimeState === TimerState.RUNNING && (
           <button onClick={pause}>Pause</button>
         )}
+
         {runtimeState === TimerState.PAUSED && (
           <button onClick={resume}>Resume</button>
         )}
+
         {runtimeState === TimerState.COMPLETED && (
           <button onClick={reset}>Reset</button>
         )}

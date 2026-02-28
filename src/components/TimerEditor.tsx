@@ -16,6 +16,7 @@ Step 11:
 
 import { useState } from 'react';
 import { TimerConfig } from '../models/TimerTypes';
+import { AVAILABLE_SOUNDS } from '../audio/SoundRegistry';
 
 interface Props {
   config: TimerConfig;
@@ -84,13 +85,26 @@ export function TimerEditor({ config, onSave, onDelete, onCancel }: Props) {
       <label>Sound</label>
       <select
         value={local.sound || ''}
-        onChange={(e) => updateField('sound', e.target.value)}
+        onChange={(e) => setLocal({ ...local, sound: e.target.value })}
       >
         <option value="">None</option>
-        <option value="beep.mp3">Beep</option>
-        <option value="chime.mp3">Chime</option>
-        <option value="alert.mp3">Alert (New)</option>
+        {AVAILABLE_SOUNDS.map((file) => (
+          <option key={file} value={file}>
+            {file}
+          </option>
+        ))}
       </select>
+
+      <button
+        onClick={() => {
+          if (!local.sound) return;
+          const audio = new Audio(`/sounds/${local.sound}`);
+          audio.currentTime = 0;
+          audio.play();
+        }}
+      >
+        Preview
+      </button>
 
       <h3>Sub Timers</h3>
 
