@@ -1,71 +1,38 @@
-import { TimerNode } from '../timers/TimerNode';
-import { TimerState } from '../models/TimerTypes';
-import { useTimerEngine } from '../hooks/useTimerEngine';
+import { TimerNodeConfig } from '../models/TimerTypes';
+import { TimerScheduler } from '../timers/TimerScheduler';
+import { useEffect, useState } from 'react';
 
 interface Props {
-  root: TimerNode;
-}
-
-function format(ms: number) {
-  return (ms / 1000).toFixed(1) + 's';
+  root: TimerNodeConfig;
 }
 
 export function TimerRunner({ root }: Props) {
-  const { runtimeState, start, pause, resume, reset, scheduler } =
-    useTimerEngine();
+  const [, setTick] = useState(0);
+  const [scheduler] = useState(
+    () => new TimerScheduler(() => setTick((v) => v + 1)),
+  );
 
-  const active = scheduler.getActiveNode();
+  useEffect(() => {
+    scheduler.start(root);
+    return () => scheduler.stop();
+  }, [root]);
 
-  const renderNode = (node: TimerNode, depth = 0) => {
-    const remaining = scheduler.getRemainingMs(node);
-    const isActive = active === node;
+  const renderNode = (node: TimerNodeConfig, depth = 0) => {
+    const state = scheduler.getActiveStates().get(node.id);
+    const remaining = state ? state.remainingMs : node.durationMs;
 
     return (
-      <div key={node.config.id} style={{ marginLeft: depth * 20 }}>
-        <div
-          style={{
-            padding: 8,
-            marginBottom: 4,
-            background: isActive ? '#1f2937' : '#374151',
-            color: 'white',
-            borderRadius: 4,
-          }}
-        >
-          <strong>{node.config.name}</strong>
-          <span style={{ marginLeft: 10 }}>{format(remaining)}</span>
+      <div key={node.id} style={{ marginLeft: depth * 20 }}>
+        <div>
+          {node.name} – {(remaining / 1000).toFixed(1)}s
         </div>
 
-        {node
-          .getExecutableChildren()
-          .map((child) => renderNode(child, depth + 1))}
+        {node.parallelSiblings?.map((s) => renderNode(s, depth + 1))}
+
+        {node.sequentialChild && renderNode(node.sequentialChild, depth + 1)}
       </div>
     );
   };
 
-  return (
-    <div style={{ marginTop: 20 }}>
-      <h2>Timer</h2>
-
-      {/* Root must render itself */}
-      {renderNode(root)}
-
-      <div style={{ marginTop: 20 }}>
-        {runtimeState === TimerState.IDLE && (
-          <button onClick={() => start(root)}>Start</button>
-        )}
-
-        {runtimeState === TimerState.RUNNING && (
-          <button onClick={pause}>Pause</button>
-        )}
-
-        {runtimeState === TimerState.PAUSED && (
-          <button onClick={resume}>Resume</button>
-        )}
-
-        {runtimeState === TimerState.COMPLETED && (
-          <button onClick={reset}>Reset</button>
-        )}
-      </div>
-    </div>
-  );
+  return <div>{renderNode(root)}</div>;
 }

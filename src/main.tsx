@@ -2,95 +2,60 @@
 ===============================================================================
 FILE: src/main.tsx
 
-PURPOSE:
-- Bootstrap application
-- Construct default demo timer trees
-- Render TimerManager
-- Register service worker
-
-This file intentionally remains thin and deterministic.
+Application Entry.
+Web build is canonical runtime.
 ===============================================================================
 */
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-
-import { TimerNode } from './timers/TimerNode';
 import { TimerManager } from './components/TimerManager';
 import { registerServiceWorker } from './pwa/registerServiceWorker';
+import { TimerNodeConfig } from './models/TimerTypes';
 
-/* ============================================================================
-   DEFAULT TIMER TREE #1
-============================================================================ */
+/* Demo Timers */
 
-const timerA = new TimerNode({
-  id: 'a',
-  name: 'Timer A',
-  durationMs: 10000,
-});
+const demoTimers: TimerNodeConfig[] = [
+  {
+    id: crypto.randomUUID(),
+    name: 'Workout',
+    durationMs: 60000,
+    inheritSound: true,
+    parallelSiblings: [
+      {
+        id: crypto.randomUUID(),
+        name: 'Warmup',
+        durationMs: 15000,
+        inheritSound: true,
+      },
+      {
+        id: crypto.randomUUID(),
+        name: 'Main',
+        durationMs: 30000,
+        inheritSound: true,
+      },
+    ],
+    sequentialChild: {
+      id: crypto.randomUUID(),
+      name: 'Cooldown',
+      durationMs: 15000,
+      inheritSound: true,
+    },
+  },
+  {
+    id: crypto.randomUUID(),
+    name: 'Quick Timer',
+    durationMs: 10000,
+    inheritSound: true,
+  },
+];
 
-const timerB = new TimerNode({
-  id: 'b',
-  name: 'Timer B',
-  durationMs: 20000,
-});
+/* Bootstrap */
 
-const intervalChild = new TimerNode({
-  id: 'b-int',
-  name: '2s Interval',
-  durationMs: 0,
-  intervalMs: 2000,
-});
-
-timerB.addChild(intervalChild);
-
-const root1 = new TimerNode({
-  id: 'root-1',
-  name: 'Root Timer One',
-  durationMs: 0,
-});
-
-root1.addChild(timerA);
-root1.addChild(timerB);
-
-/* ============================================================================
-   DEFAULT TIMER TREE #2
-============================================================================ */
-
-const quickTimer = new TimerNode({
-  id: 'quick',
-  name: 'Quick 5s',
-  durationMs: 5000,
-});
-
-const repeatTimer = new TimerNode({
-  id: 'repeat',
-  name: 'Repeat 1s',
-  durationMs: 0,
-  intervalMs: 1000,
-});
-
-const root2 = new TimerNode({
-  id: 'root-2',
-  name: 'Root Timer Two',
-  durationMs: 0,
-});
-
-root2.addChild(quickTimer);
-root2.addChild(repeatTimer);
-
-/* ============================================================================
-   RENDER
-============================================================================ */
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
+ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <TimerManager defaultRoots={[root1, root2]} />
+    <TimerManager defaultRoots={demoTimers} />
   </React.StrictMode>,
 );
-
-/* ============================================================================
-   PWA
-============================================================================ */
 
 registerServiceWorker();

@@ -2,42 +2,32 @@
 ===============================================================================
 FILE: src/components/TimerManager.tsx
 
-Step 12 Responsibilities:
-- Own all timer trees
+Responsibilities:
+- Own all TimerNodeConfig trees
 - Full-window edit mode
-- Clone default timers on edit
-- Handle save / delete
-- Drag reorder timers
-- JSON import/export (all timers)
-- Persist ordering
+- Save / delete
+- Drag reorder
+- JSON import/export
+- Persistence boundary
 ===============================================================================
 */
 
 import { useEffect, useState } from 'react';
-import { TimerConfig, TimerState } from '../models/TimerTypes';
-import { TimerNode } from '../timers/TimerNode';
+import { TimerNodeConfig } from '../models/TimerTypes';
 import { TimerRunner } from './TimerRunner';
 import { TimerEditor } from './TimerEditor';
 import { PersistenceService } from '../services/PersistenceService';
 
 interface Props {
-  defaultRoots: TimerNode[];
+  defaultRoots: TimerNodeConfig[];
 }
 
-/* Convert runtime tree to config */
-function serializeNode(node: TimerNode): TimerConfig {
-  return {
-    ...node.config,
-    children: node.children.map(serializeNode),
-  };
-}
-
-/* Deep clone config */
-function cloneConfig(config: TimerConfig): TimerConfig {
+/* Deep clone */
+function cloneConfig(config: TimerNodeConfig): TimerNodeConfig {
   return JSON.parse(JSON.stringify(config));
 }
 
-/* Move array element */
+/* Move element */
 function moveItem<T>(arr: T[], from: number, to: number): T[] {
   const updated = [...arr];
   const [item] = updated.splice(from, 1);
@@ -46,9 +36,9 @@ function moveItem<T>(arr: T[], from: number, to: number): T[] {
 }
 
 export function TimerManager({ defaultRoots }: Props) {
-  const [timers, setTimers] = useState<TimerConfig[]>([]);
-  const [selected, setSelected] = useState<TimerConfig | null>(null);
-  const [editing, setEditing] = useState<TimerConfig | null>(null);
+  const [timers, setTimers] = useState<TimerNodeConfig[]>([]);
+  const [selected, setSelected] = useState<TimerNodeConfig | null>(null);
+  const [editing, setEditing] = useState<TimerNodeConfig | null>(null);
 
   /* Initial Load */
   useEffect(() => {
@@ -58,51 +48,30 @@ export function TimerManager({ defaultRoots }: Props) {
       if (stored.length > 0) {
         setTimers(stored.map((s) => s.config));
       } else {
-        /* Use defaults if nothing persisted */
-        setTimers(
-          defaultRoots.map((r) => ({
-            ...serializeNode(r),
-            isDefault: true,
-          })),
-        );
+        setTimers(defaultRoots.map((r) => cloneConfig(r)));
       }
     }
 
     load();
   }, [defaultRoots]);
 
-  /* Build runtime tree */
-  function buildNode(config: TimerConfig): TimerNode {
-    const node = new TimerNode(config);
-    config.children?.forEach((c: TimerConfig) => node.addChild(buildNode(c)));
-    return node;
-  }
-
-  /* Persist all timers */
-  async function persistAll(configs: TimerConfig[]) {
+  /* Persist All */
+  async function persistAll(configs: TimerNodeConfig[]) {
     for (const cfg of configs) {
-      const runtimeNode = buildNode(cfg);
-
       await PersistenceService.saveTimer(
         cfg,
-        runtimeNode.state
+        'Idle' as any, // Persisted state placeholder
       );
     }
   }
 
-  /* Save edit */
-  async function handleSave(updated: TimerConfig) {
-    let newTimers = [...timers];
+  /* Save */
+  async function handleSave(updated: TimerNodeConfig) {
+    const exists = timers.some((t) => t.id === updated.id);
 
-    if (updated.isDefault) {
-      /* Clone default instead of modifying */
-      const clone = cloneConfig(updated);
-      clone.id = crypto.randomUUID();
-      clone.isDefault = false;
-      newTimers.push(clone);
-    } else {
-      newTimers = newTimers.map((t) => (t.id === updated.id ? updated : t));
-    }
+    const newTimers = exists
+      ? timers.map((t) => (t.id === updated.id ? updated : t))
+      : [...timers, updated];
 
     setTimers(newTimers);
     await persistAll(newTimers);
@@ -112,26 +81,27 @@ export function TimerManager({ defaultRoots }: Props) {
   /* Delete */
   async function handleDelete(id: string) {
     const filtered = timers.filter((t) => t.id !== id);
-    setTimers(filtered);
 
+    setTimers(filtered);
     await PersistenceService.deleteTimer(id);
     await persistAll(filtered);
 
     setEditing(null);
   }
 
-  /* MAIN WINDOW */
+  /* ================= MAIN VIEW ================= */
   if (!editing) {
     return (
       <div style={{ padding: 20 }}>
         <h1>Kersh Timer</h1>
 
-        {/* JSON EXPORT */}
+        {/* Export */}
         <button
           onClick={() => {
             const blob = new Blob([JSON.stringify(timers, null, 2)], {
               type: 'application/json',
             });
+
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -142,7 +112,7 @@ export function TimerManager({ defaultRoots }: Props) {
           Export All
         </button>
 
-        {/* JSON IMPORT */}
+        {/* Import */}
         <input
           type="file"
           accept="application/json"
@@ -151,16 +121,21 @@ export function TimerManager({ defaultRoots }: Props) {
             if (!file) return;
 
             const reader = new FileReader();
+
             reader.onload = async () => {
-              const parsed: TimerConfig[] = JSON.parse(reader.result as string);
+              const parsed: TimerNodeConfig[] = JSON.parse(
+                reader.result as string,
+              );
+
               setTimers(parsed);
               await persistAll(parsed);
             };
+
             reader.readAsText(file);
           }}
         />
 
-        {/* TIMER LIST */}
+        {/* Timer List */}
         {timers.map((t, index) => (
           <div
             key={t.id}
@@ -171,29 +146,34 @@ export function TimerManager({ defaultRoots }: Props) {
             onDragOver={(e) => e.preventDefault()}
             onDrop={async (e) => {
               const from = Number(e.dataTransfer.getData('index'));
+
               const reordered = moveItem(timers, from, index);
+
               setTimers(reordered);
               await persistAll(reordered);
             }}
             style={{ marginBottom: 8 }}
           >
             <span
-              style={{ cursor: 'pointer', marginRight: 10 }}
+              style={{
+                cursor: 'pointer',
+                marginRight: 10,
+              }}
               onClick={() => setSelected(t)}
             >
               {t.name}
             </span>
 
-            <button onClick={() => setEditing(cloneConfig(t))}>≡</button>
+            <button onClick={() => setEditing(cloneConfig(t))}>Edit</button>
           </div>
         ))}
 
-        {selected && <TimerRunner root={buildNode(selected)} />}
+        {selected && <TimerRunner root={selected} />}
       </div>
     );
   }
 
-  /* EDIT WINDOW */
+  /* ================= EDIT VIEW ================= */
   return (
     <TimerEditor
       config={editing}

@@ -1,83 +1,26 @@
-/*
-===============================================================================
-FILE: src/models/TimerTypes.ts
+export type TimerStatus = 'IDLE' | 'RUNNING' | 'COMPLETE' | 'STOPPED';
 
-Centralized domain model definitions.
-
-This file MUST remain backward compatible with:
-- TimerNode
-- TimerScheduler
-- TimerRunner
-- AudioManager
-- AudioService
-- PersistenceService
-===============================================================================
-*/
-
-/* ============================================================================
-   TIMER CONFIGURATION (STRUCTURAL)
-============================================================================ */
-
-export interface TimerConfig {
+export interface TimerNodeConfig {
   id: string;
   name: string;
-
   durationMs: number;
-  intervalMs?: number;
-  incrementMs?: number;
 
   sound?: string;
+  inheritSound: boolean;
 
-  children?: TimerConfig[];
-
-  isDefault?: boolean;
+  sequentialChild?: TimerNodeConfig;
+  parallelSiblings?: TimerNodeConfig[];
 }
 
-/* ============================================================================
-   TIMER RUNTIME STATE
-============================================================================ */
+/* ===========================
+   BACKWARD COMPATIBILITY
+   =========================== */
 
-export enum TimerState {
-  IDLE = 'IDLE',
-  RUNNING = 'RUNNING',
-  PAUSED = 'PAUSED',
-  COMPLETED = 'COMPLETED',
+export type TimerConfig = TimerNodeConfig;
+
+export interface TimerState {
+  remainingMs: number;
+  status: TimerStatus;
 }
 
-/* ============================================================================
-   AUDIO CHANNEL TYPES
-============================================================================ */
-
-export enum AudioChannelType {
-  ALARM = 'ALARM',
-  BACKGROUND = 'BACKGROUND',
-  INTERVAL = 'INTERVAL',
-  NOTIFICATION = 'NOTIFICATION',
-}
-
-/* ============================================================================
-   TIMER AUDIO CONFIG
-============================================================================ */
-
-export interface TimerAudioConfig {
-  /* Used by AudioManager */
-  alarmSoundId?: string;
-
-  /* Optional looping background */
-  backgroundSoundId?: string;
-
-  /* Optional volume */
-  volume?: number;
-
-  /* Optional channel override */
-  channel?: AudioChannelType;
-}
-
-/* ============================================================================
-   STEP 12 ADDITIONS (No versioning)
-============================================================================ */
-
-export interface TimerConfig {
-  repeatCount?: number;
-  category?: string;
-}
+export type AudioChannelType = 'DEFAULT';

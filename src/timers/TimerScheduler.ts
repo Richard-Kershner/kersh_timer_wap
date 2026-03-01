@@ -1,167 +1,178 @@
-import { TimerNode } from './TimerNode';
-import { TimerState } from '../models/TimerTypes';
+import { TimerNodeConfig, TimerStatus } from '../models/TimerTypes';
+import { audioManager } from '../audio/AudioManager';
 
-type RuntimeState =
-  | TimerState.IDLE
-  | TimerState.RUNNING
-  | TimerState.PAUSED
-  | TimerState.COMPLETED;
-
-interface ActiveContext {
-  node: TimerNode;
-  startTime: number;
-  elapsed: number;
+interface RuntimeState {
+  remainingMs: number;
+  status: TimerStatus;
+  effectiveSound?: string;
+  parent?: RuntimeState;
+  config: TimerNodeConfig;
 }
 
 export class TimerScheduler {
-  private runtimeState: RuntimeState = TimerState.IDLE;
-  private sequence: TimerNode[] = [];
-  private activeIndex = 0;
-  private activeContext: ActiveContext | null = null;
-  private intervalTrackers = new Map<TimerNode, number>();
+  private active = new Map<string, RuntimeState>();
+  private root?: TimerNodeConfig;
+  private interval?: number;
+  private onUpdate?: () => void;
 
-  start(root: TimerNode): void {
-    if (!this.canTransitionTo(TimerState.RUNNING)) return;
-
-    this.sequence = root.getExecutableChildren();
-    this.activeIndex = 0;
-    this.startNext();
-
-    this.transition(TimerState.RUNNING);
-    this.loop();
+  constructor(onUpdate?: () => void) {
+    this.onUpdate = onUpdate;
   }
 
-  pause(): void {
-    if (!this.canTransitionTo(TimerState.PAUSED)) return;
-    this.transition(TimerState.PAUSED);
+  /* =========================
+     PUBLIC API
+     ========================= */
+
+  start(root: TimerNodeConfig) {
+    this.stop();
+    this.root = root;
+    this.activateNode(root, undefined, root.sound);
+    this.interval = window.setInterval(() => this.tick(), 50);
   }
 
-  resume(): void {
-    if (!this.canTransitionTo(TimerState.RUNNING)) return;
-    if (this.activeContext) {
-      this.activeContext.startTime = Date.now() - this.activeContext.elapsed;
+  stop() {
+    if (this.interval) {
+      clearInterval(this.interval);
+      this.interval = undefined;
     }
-    this.transition(TimerState.RUNNING);
-    this.loop();
+    this.active.clear();
+    audioManager.stop();
   }
 
-  reset(): void {
-    if (this.runtimeState !== TimerState.COMPLETED) return;
-    this.transition(TimerState.IDLE);
-  }
-
-  getRuntimeState(): RuntimeState {
-    return this.runtimeState;
-  }
-
-  getActiveNode(): TimerNode | null {
-    return this.activeContext?.node ?? null;
-  }
-
-  getRemainingMs(node: TimerNode): number {
-    if (this.activeContext?.node !== node) {
-      return node.config.durationMs ?? 0;
+  pause() {
+    if (this.interval) {
+      clearInterval(this.interval);
+      this.interval = undefined;
     }
-
-    const duration = node.config.durationMs ?? 0;
-    return Math.max(duration - this.activeContext.elapsed, 0);
   }
 
-  private startNext(): void {
-    const next = this.sequence[this.activeIndex];
-    if (!next) {
-      this.transition(TimerState.COMPLETED);
-      return;
+  resume() {
+    if (!this.interval) {
+      this.interval = window.setInterval(() => this.tick(), 50);
     }
+  }
 
-    this.intervalTrackers.clear();
+  reset() {
+    this.stop();
+    if (this.root) {
+      this.start(this.root);
+    }
+  }
 
-    this.activeContext = {
-      node: next,
-      startTime: Date.now(),
-      elapsed: 0,
+  getActiveStates() {
+    return this.active;
+  }
+
+  getRuntimeState() {
+    return this.active;
+  }
+
+  /* =========================
+     INTERNAL ENGINE
+     ========================= */
+
+  private activateNode(
+    config: TimerNodeConfig,
+    parent?: RuntimeState,
+    inheritedSound?: string,
+  ) {
+    const effectiveSound =
+      config.inheritSound === false ? config.sound : inheritedSound;
+
+    const state: RuntimeState = {
+      remainingMs: config.durationMs,
+      status: 'RUNNING',
+      effectiveSound,
+      parent,
+      config,
     };
-  }
 
-  private loop(): void {
-    if (this.runtimeState !== TimerState.RUNNING) return;
-    if (!this.activeContext) return;
+    this.active.set(config.id, state);
 
-    const now = Date.now();
-    const ctx = this.activeContext;
-
-    ctx.elapsed = now - ctx.startTime;
-    const duration = ctx.node.config.durationMs ?? 0;
-
-    this.handleIntervals(ctx);
-
-    if (ctx.elapsed >= duration) {
-      this.playAlarm();
-      this.activeIndex++;
-      this.startNext();
-    }
-
-    requestAnimationFrame(() => this.loop());
-  }
-
-  private handleIntervals(ctx: ActiveContext): void {
-    ctx.node.getExecutableChildren().forEach(child => {
-      const interval = child.config.intervalMs;
-      if (!interval) return;
-
-      const last = this.intervalTrackers.get(child) ?? 0;
-
-      if (ctx.elapsed - last >= interval) {
-        this.playBeep();
-        this.intervalTrackers.set(child, ctx.elapsed);
+    // Start parallel siblings immediately
+    if (config.parallelSiblings) {
+      for (const sibling of config.parallelSiblings) {
+        this.activateNode(sibling, state, effectiveSound);
       }
-    });
-  }
+    }
 
-  private playAlarm(): void {
-    this.playBeep();
-  }
-
-  private playBeep(): void {
-    try {
-      const audioCtx = new (window.AudioContext ||
-        (window as any).webkitAudioContext)();
-      const oscillator = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-
-      oscillator.type = 'sine';
-      oscillator.frequency.value = 880;
-      gain.gain.value = 0.2;
-
-      oscillator.connect(gain);
-      gain.connect(audioCtx.destination);
-
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.2);
-    } catch {
-      console.log('BEEP');
+    // Duration 0 triggers instantly
+    if (config.durationMs === 0) {
+      this.completeNode(state);
     }
   }
 
-  private canTransitionTo(target: RuntimeState): boolean {
-    const current = this.runtimeState;
+  private tick() {
+    const completed: RuntimeState[] = [];
 
-    switch (current) {
-      case TimerState.IDLE:
-        return target === TimerState.RUNNING;
-      case TimerState.RUNNING:
-        return target === TimerState.PAUSED || target === TimerState.COMPLETED;
-      case TimerState.PAUSED:
-        return target === TimerState.RUNNING;
-      case TimerState.COMPLETED:
-        return target === TimerState.IDLE;
-      default:
-        return false;
+    for (const state of this.active.values()) {
+      if (state.status !== 'RUNNING') continue;
+
+      state.remainingMs -= 50;
+
+      if (state.remainingMs <= 0) {
+        completed.push(state);
+      }
+    }
+
+    for (const state of completed) {
+      this.completeNode(state);
+    }
+
+    this.onUpdate?.();
+  }
+
+  private completeNode(state: RuntimeState) {
+    if (state.status !== 'RUNNING') return;
+
+    state.status = 'COMPLETE';
+
+    if (state.effectiveSound) {
+      audioManager.play(state.effectiveSound);
+    }
+
+    // Stop parallel siblings immediately
+    if (state.parent) {
+      const siblings = state.parent.config.parallelSiblings;
+      if (siblings) {
+        for (const sibling of siblings) {
+          if (sibling.id !== state.config.id) {
+            this.forceStop(sibling.id);
+          }
+        }
+      }
+    }
+
+    // Remove completed node from active set
+    this.active.delete(state.config.id);
+
+    // Start sequential child
+    if (state.config.sequentialChild) {
+      this.activateNode(
+        state.config.sequentialChild,
+        state,
+        state.effectiveSound,
+      );
     }
   }
 
-  private transition(target: RuntimeState): void {
-    if (!this.canTransitionTo(target)) return;
-    this.runtimeState = target;
+  private forceStop(id: string) {
+    const state = this.active.get(id);
+    if (!state) return;
+
+    state.status = 'STOPPED';
+    this.active.delete(id);
+
+    // Stop sequential subtree
+    if (state.config.sequentialChild) {
+      this.forceStop(state.config.sequentialChild.id);
+    }
+
+    // Stop parallel subtree
+    if (state.config.parallelSiblings) {
+      for (const s of state.config.parallelSiblings) {
+        this.forceStop(s.id);
+      }
+    }
   }
 }

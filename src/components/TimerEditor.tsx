@@ -2,148 +2,157 @@
 ===============================================================================
 FILE: src/components/TimerEditor.tsx
 
-Step 11:
-- Full window edit mode
-- Supports editing sub timers
-- Allows:
-    duration
-    interval
-    increment
-    sound
-- Save / Delete / Cancel returns to main window
+Purpose:
+- Full window editor for a TimerNodeConfig
+- Creates / edits nested timer structures
+- Does NOT execute timers
+- Pure configuration editor
+
+Used by:
+- TimerManager (full-window replacement view)
+
+Responsibilities:
+- Edit name
+- Edit duration
+- Edit sound inheritance
+- Save / Delete / Cancel actions
 ===============================================================================
 */
 
 import { useState } from 'react';
-import { TimerConfig } from '../models/TimerTypes';
+import { TimerNodeConfig } from '../models/TimerTypes';
 import { AVAILABLE_SOUNDS } from '../audio/SoundRegistry';
 
 interface Props {
-  config: TimerConfig;
-  onSave: (config: TimerConfig) => void;
-  onDelete: (id: string) => void;
+  config: TimerNodeConfig;
+  onSave: (config: TimerNodeConfig) => void | Promise<void>;
+  onDelete: (id: string) => void | Promise<void>;
   onCancel: () => void;
 }
 
+/* simple id generator (no uuid dependency) */
+function generateId(): string {
+  return crypto.randomUUID();
+}
+
 export function TimerEditor({ config, onSave, onDelete, onCancel }: Props) {
-  const [local, setLocal] = useState<TimerConfig>(config);
+  const [local, setLocal] = useState<TimerNodeConfig>(
+    JSON.parse(JSON.stringify(config)),
+  );
 
-  function updateField<K extends keyof TimerConfig>(
+  /* update helper */
+  function update<K extends keyof TimerNodeConfig>(
     key: K,
-    value: TimerConfig[K],
+    value: TimerNodeConfig[K],
   ) {
-    setLocal({ ...local, [key]: value });
+    setLocal((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
   }
 
-  function updateChild(index: number, child: TimerConfig) {
-    const children = [...(local.children || [])];
-    children[index] = child;
-    setLocal({ ...local, children });
-  }
-
+  /* add sequential child */
   function addChild() {
-    const children = [...(local.children || [])];
-    children.push({
-      id: crypto.randomUUID(),
-      name: 'New Sub Timer',
+    update('sequentialChild', {
+      id: generateId(),
+      name: 'Child Alarm',
       durationMs: 5000,
+      inheritSound: true,
     });
-    setLocal({ ...local, children });
   }
+
+  /* add parallel sibling */
+  function addSibling() {
+    const list = local.parallelSiblings ?? [];
+
+    if (list.length >= 3) return;
+
+    update('parallelSiblings', [
+      ...list,
+      {
+        id: generateId(),
+        name: 'Parallel Alarm',
+        durationMs: 5000,
+        inheritSound: true,
+      },
+    ]);
+  }
+
+  /* ================= UI ================= */
 
   return (
     <div style={{ padding: 20 }}>
       <h2>Edit Timer</h2>
 
-      <label>Name</label>
-      <input
-        value={local.name}
-        onChange={(e) => updateField('name', e.target.value)}
-      />
+      {/* NAME */}
+      <div>
+        <label>Name</label>
+        <input
+          value={local.name}
+          onChange={(e) => update('name', e.target.value)}
+        />
+      </div>
 
-      <label>Duration (ms)</label>
-      <input
-        type="number"
-        value={local.durationMs}
-        onChange={(e) => updateField('durationMs', Number(e.target.value))}
-      />
+      {/* DURATION */}
+      <div>
+        <label>Duration (seconds)</label>
+        <input
+          type="number"
+          value={local.durationMs / 1000}
+          onChange={(e) => update('durationMs', Number(e.target.value) * 1000)}
+        />
+      </div>
 
-      <label>Interval (ms)</label>
-      <input
-        type="number"
-        value={local.intervalMs || 0}
-        onChange={(e) => updateField('intervalMs', Number(e.target.value))}
-      />
+      {/* SOUND */}
+      <div>
+        <label>Alarm Sound</label>
+        <select
+          value={local.sound ?? ''}
+          onChange={(e) => update('sound', e.target.value || undefined)}
+        >
+          <option value="">(inherit)</option>
 
-      <label>Increment (ms)</label>
-      <input
-        type="number"
-        value={local.incrementMs || 0}
-        onChange={(e) => updateField('incrementMs', Number(e.target.value))}
-      />
+          {AVAILABLE_SOUNDS.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+      </div>
 
-      <label>Sound</label>
-      <select
-        value={local.sound || ''}
-        onChange={(e) => setLocal({ ...local, sound: e.target.value })}
-      >
-        <option value="">None</option>
-        {AVAILABLE_SOUNDS.map((file) => (
-          <option key={file} value={file}>
-            {file}
-          </option>
-        ))}
-      </select>
-
-      <button
-        onClick={() => {
-          if (!local.sound) return;
-          const audio = new Audio(`/sounds/${local.sound}`);
-          audio.currentTime = 0;
-          audio.play();
-        }}
-      >
-        Preview
-      </button>
-
-      <h3>Sub Timers</h3>
-
-      {local.children?.map((child, i) => (
-        <div key={child.id} style={{ marginBottom: 10 }}>
+      {/* INHERIT */}
+      <div>
+        <label>
           <input
-            value={child.name}
-            onChange={(e) =>
-              updateChild(i, {
-                ...child,
-                name: e.target.value,
-              })
-            }
+            type="checkbox"
+            checked={local.inheritSound}
+            onChange={(e) => update('inheritSound', e.target.checked)}
           />
+          Inherit sound from parent
+        </label>
+      </div>
 
-          <button
-            onClick={() =>
-              updateChild(i, {
-                ...child,
-                durationMs: child.durationMs + 1000,
-              })
-            }
-          >
-            +1s
-          </button>
-        </div>
-      ))}
+      {/* STRUCTURE */}
+      <div style={{ marginTop: 20 }}>
+        <button onClick={addChild}>Add Sequential Child</button>
 
-      <button onClick={addChild}>+ Add Sub Timer</button>
+        <button onClick={addSibling} style={{ marginLeft: 10 }}>
+          Add Parallel Sibling
+        </button>
+      </div>
 
-      <hr />
+      {/* ACTIONS */}
+      <div style={{ marginTop: 30 }}>
+        <button onClick={() => onSave(local)}>Save</button>
 
-      <button onClick={() => onSave(local)}>Save</button>
+        <button onClick={() => onDelete(local.id)} style={{ marginLeft: 10 }}>
+          Delete
+        </button>
 
-      {!local.isDefault && (
-        <button onClick={() => onDelete(local.id)}>Delete</button>
-      )}
-
-      <button onClick={onCancel}>Cancel</button>
+        <button onClick={onCancel} style={{ marginLeft: 10 }}>
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }
