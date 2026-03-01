@@ -2,12 +2,9 @@
 ===============================================================================
 FILE: src/components/TimerManager.tsx
 
-Responsibilities:
-- Own all TimerNodeConfig trees
-- Full-window edit mode
-- Save / delete
-- Drag reorder
-- JSON import/export
+Owns:
+- TimerNodeConfig roots
+- Editing lifecycle
 - Persistence boundary
 ===============================================================================
 */
@@ -27,7 +24,7 @@ function cloneConfig(config: TimerNodeConfig): TimerNodeConfig {
   return JSON.parse(JSON.stringify(config));
 }
 
-/* Move element */
+/* Reorder helper */
 function moveItem<T>(arr: T[], from: number, to: number): T[] {
   const updated = [...arr];
   const [item] = updated.splice(from, 1);
@@ -40,7 +37,7 @@ export function TimerManager({ defaultRoots }: Props) {
   const [selected, setSelected] = useState<TimerNodeConfig | null>(null);
   const [editing, setEditing] = useState<TimerNodeConfig | null>(null);
 
-  /* Initial Load */
+  /* Initial load */
   useEffect(() => {
     async function load() {
       const stored = await PersistenceService.loadAllTimers();
@@ -55,16 +52,6 @@ export function TimerManager({ defaultRoots }: Props) {
     load();
   }, [defaultRoots]);
 
-  /* Persist All */
-  async function persistAll(configs: TimerNodeConfig[]) {
-    for (const cfg of configs) {
-      await PersistenceService.saveTimer(
-        cfg,
-        'Idle' as any, // Persisted state placeholder
-      );
-    }
-  }
-
   /* Save */
   async function handleSave(updated: TimerNodeConfig) {
     const exists = timers.some((t) => t.id === updated.id);
@@ -74,7 +61,9 @@ export function TimerManager({ defaultRoots }: Props) {
       : [...timers, updated];
 
     setTimers(newTimers);
-    await persistAll(newTimers);
+
+    await PersistenceService.saveTimer(updated, 'Idle' as any);
+
     setEditing(null);
   }
 
@@ -83,10 +72,30 @@ export function TimerManager({ defaultRoots }: Props) {
     const filtered = timers.filter((t) => t.id !== id);
 
     setTimers(filtered);
+
     await PersistenceService.deleteTimer(id);
-    await persistAll(filtered);
 
     setEditing(null);
+  }
+
+  /* Import */
+  async function handleImport(parsed: TimerNodeConfig[]) {
+    setTimers(parsed);
+
+    for (const t of parsed) {
+      await PersistenceService.saveTimer(t, 'Idle' as any);
+    }
+  }
+
+  /* Reorder */
+  async function handleReorder(from: number, to: number) {
+    const reordered = moveItem(timers, from, to);
+
+    setTimers(reordered);
+
+    for (const t of reordered) {
+      await PersistenceService.saveTimer(t, 'Idle' as any);
+    }
   }
 
   /* ================= MAIN VIEW ================= */
@@ -127,8 +136,7 @@ export function TimerManager({ defaultRoots }: Props) {
                 reader.result as string,
               );
 
-              setTimers(parsed);
-              await persistAll(parsed);
+              await handleImport(parsed);
             };
 
             reader.readAsText(file);
@@ -144,13 +152,10 @@ export function TimerManager({ defaultRoots }: Props) {
               e.dataTransfer.setData('index', index.toString())
             }
             onDragOver={(e) => e.preventDefault()}
-            onDrop={async (e) => {
+            onDrop={(e) => {
               const from = Number(e.dataTransfer.getData('index'));
 
-              const reordered = moveItem(timers, from, index);
-
-              setTimers(reordered);
-              await persistAll(reordered);
+              handleReorder(from, index);
             }}
             style={{ marginBottom: 8 }}
           >
