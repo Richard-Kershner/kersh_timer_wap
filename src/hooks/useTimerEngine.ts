@@ -2,63 +2,99 @@
 ===============================================================================
 FILE: src/hooks/useTimerEngine.ts
 
-Deterministic timer execution engine
-Simple single-root execution
-No nested scheduling yet
+Deterministic recursive engine.
+All nodes tracked independently.
 ===============================================================================
 */
 
 import { useEffect, useRef, useState } from 'react';
 import { TimerNodeConfig } from '../models/TimerTypes';
 
-type EngineState = 'Idle' | 'Running' | 'Paused' | 'Completed';
+interface RuntimeNode {
+  config: TimerNodeConfig;
+  remaining: number;
+  active: boolean;
+  children?: RuntimeNode;
+  siblings?: RuntimeNode[];
+}
 
-export function useTimerEngine(root: TimerNodeConfig) {
-  const [state, setState] = useState<EngineState>('Idle');
+function buildRuntime(node: TimerNodeConfig): RuntimeNode {
+  return {
+    config: node,
+    remaining: node.durationMs ?? 0,
+    active: false,
+    children: node.sequentialChild
+      ? buildRuntime(node.sequentialChild)
+      : undefined,
+    siblings: node.parallelSiblings?.map(buildRuntime),
+  };
+}
 
-  const [remaining, setRemaining] = useState<number>(root.durationMs ?? 0);
+export function useTimerEngine(rootConfig: TimerNodeConfig) {
+  const [root, setRoot] = useState<RuntimeNode>(buildRuntime(rootConfig));
 
-  const intervalRef = useRef<number | null>(null);
+  const [state, setState] = useState<'idle' | 'running' | 'paused'>('idle');
+
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  function activateNode(node: RuntimeNode) {
+    node.active = true;
+    node.siblings?.forEach((s) => (s.active = true));
+  }
+
+  function stopNode(node: RuntimeNode) {
+    node.active = false;
+    node.siblings?.forEach((s) => (s.active = false));
+  }
+
+  function tickNode(node: RuntimeNode) {
+    if (!node.active) return;
+
+    if (node.remaining > 0) {
+      node.remaining -= 1000;
+    }
+
+    if (node.remaining <= 0) {
+      stopNode(node);
+
+      // Start sequential child
+      if (node.children) {
+        activateNode(node.children);
+      }
+    }
+
+    node.siblings?.forEach(tickNode);
+    if (node.children) tickNode(node.children);
+  }
 
   function start() {
-    if (state === 'Running') return;
+    if (state === 'running') return;
 
-    setState('Running');
+    setState('running');
 
-    intervalRef.current = window.setInterval(() => {
-      setRemaining((prev) => {
-        if (prev <= 1000) {
-          clearInterval(intervalRef.current!);
-          setState('Completed');
-          return 0;
-        }
-        return prev - 1000;
-      });
+    activateNode(root);
+
+    intervalRef.current = setInterval(() => {
+      tickNode(root);
+      setRoot({ ...root });
     }, 1000);
   }
 
   function pause() {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-    setState('Paused');
+    setState('paused');
+    if (intervalRef.current) clearInterval(intervalRef.current);
   }
 
   function cancel() {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-    setRemaining(root.durationMs ?? 0);
-    setState('Idle');
+    if (intervalRef.current) clearInterval(intervalRef.current);
+
+    setRoot(buildRuntime(rootConfig));
+    setState('idle');
   }
 
-  useEffect(() => {
-    cancel();
-  }, [root]);
-
   return {
+    root,
     state,
-    remaining,
     start,
     pause,
     cancel,

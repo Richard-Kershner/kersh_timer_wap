@@ -2,13 +2,14 @@
 ===============================================================================
 FILE: src/components/TimerEditor.tsx
 
-Recursive structural editor for TimerNodeConfig
-No runtime execution
+Recursive structural editor.
+Save always clones to new ID.
 ===============================================================================
 */
 
 import { useState } from 'react';
 import { TimerNodeConfig } from '../models/TimerTypes';
+import { AVAILABLE_SOUNDS } from '../audio/SoundRegistry';
 
 interface Props {
   config: TimerNodeConfig;
@@ -21,13 +22,27 @@ function generateId(): string {
   return crypto.randomUUID();
 }
 
+/* Deep clone and regenerate IDs */
+function cloneWithNewIds(node: TimerNodeConfig): TimerNodeConfig {
+  return {
+    ...node,
+    id: generateId(),
+    sequentialChild: node.sequentialChild
+      ? cloneWithNewIds(node.sequentialChild)
+      : undefined,
+    parallelSiblings: node.parallelSiblings?.map(cloneWithNewIds),
+  };
+}
+
 /* Recursive Node Editor */
 function NodeEditor({
   node,
   onChange,
+  onDeleteSelf,
 }: {
   node: TimerNodeConfig;
   onChange: (updated: TimerNodeConfig) => void;
+  onDeleteSelf?: () => void;
 }) {
   function update<K extends keyof TimerNodeConfig>(
     key: K,
@@ -57,6 +72,16 @@ function NodeEditor({
     ]);
   }
 
+  function removeSequential() {
+    update('sequentialChild', undefined);
+  }
+
+  function removeParallel(index: number) {
+    const list = [...(node.parallelSiblings ?? [])];
+    list.splice(index, 1);
+    update('parallelSiblings', list);
+  }
+
   return (
     <div
       style={{ marginLeft: 20, borderLeft: '1px solid #ccc', paddingLeft: 10 }}
@@ -72,27 +97,43 @@ function NodeEditor({
         onChange={(e) => update('durationMs', Number(e.target.value))}
       />
 
-      <label>
-        <input
-          type="checkbox"
-          checked={node.inheritSound}
-          onChange={(e) => update('inheritSound', e.target.checked)}
-        />
-        inheritSound
-      </label>
+      {/* SOUND DROPDOWN */}
+      <select
+        value={node.inheritSound ? 'inherit' : (node.sound ?? '')}
+        onChange={(e) => {
+          if (e.target.value === 'inherit') {
+            update('inheritSound', true);
+            update('sound', undefined);
+          } else {
+            update('inheritSound', false);
+            update('sound', e.target.value);
+          }
+        }}
+      >
+        <option value="inherit">Inherit</option>
+        {AVAILABLE_SOUNDS.map((s) => (
+          <option key={s} value={s}>
+            {s}
+          </option>
+        ))}
+      </select>
 
       <div>
         <button onClick={addSequential}>+ Sequential</button>
-
         <button onClick={addParallel}>+ Parallel</button>
+        {onDeleteSelf && <button onClick={onDeleteSelf}>Delete</button>}
       </div>
 
       {/* Sequential */}
       {node.sequentialChild && (
-        <NodeEditor
-          node={node.sequentialChild}
-          onChange={(child) => update('sequentialChild', child)}
-        />
+        <>
+          <button onClick={removeSequential}>Remove Sequential</button>
+          <NodeEditor
+            node={node.sequentialChild}
+            onChange={(child) => update('sequentialChild', child)}
+            onDeleteSelf={removeSequential}
+          />
+        </>
       )}
 
       {/* Parallel */}
@@ -101,10 +142,11 @@ function NodeEditor({
           key={p.id}
           node={p}
           onChange={(updatedChild) => {
-            const updatedList = [...(node.parallelSiblings ?? [])];
-            updatedList[i] = updatedChild;
-            update('parallelSiblings', updatedList);
+            const list = [...(node.parallelSiblings ?? [])];
+            list[i] = updatedChild;
+            update('parallelSiblings', list);
           }}
+          onDeleteSelf={() => removeParallel(i)}
         />
       ))}
     </div>
@@ -123,9 +165,11 @@ export function TimerEditor({ config, onSave, onDelete, onCancel }: Props) {
       <NodeEditor node={local} onChange={setLocal} />
 
       <div style={{ marginTop: 20 }}>
-        <button onClick={() => onSave(local)}>Save</button>
+        <button onClick={() => onSave(cloneWithNewIds(local))}>
+          Save As New
+        </button>
 
-        <button onClick={() => onDelete(local.id)}>Delete</button>
+        <button onClick={() => onDelete(config.id)}>Delete Original</button>
 
         <button onClick={onCancel}>Cancel</button>
       </div>
