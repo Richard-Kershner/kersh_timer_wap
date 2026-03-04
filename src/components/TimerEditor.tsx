@@ -99,14 +99,22 @@ function NodeEditor({
 
       {/* SOUND DROPDOWN */}
       <select
-        value={node.inheritSound ? 'inherit' : (node.sound ?? '')}
+        value={node.inheritSound ? 'inherit' : node.sound ?? 'inherit'}
         onChange={(e) => {
-          if (e.target.value === 'inherit') {
-            update('inheritSound', true);
-            update('sound', undefined);
+          const value = e.target.value;
+
+          if (value === 'inherit') {
+            onChange({
+              ...node,
+              inheritSound: true,
+              sound: undefined,
+            });
           } else {
-            update('inheritSound', false);
-            update('sound', e.target.value);
+            onChange({
+              ...node,
+              inheritSound: false,
+              sound: value,
+            });
           }
         }}
       >
@@ -117,6 +125,7 @@ function NodeEditor({
           </option>
         ))}
       </select>
+
 
       <div>
         <button onClick={addSequential}>+ Sequential</button>

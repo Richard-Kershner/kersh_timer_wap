@@ -62,7 +62,10 @@ export function TimerManager({ defaultRoots }: Props) {
 
     setTimers(newTimers);
 
-    await PersistenceService.saveTimer(updated, 'Idle' as any);
+    await PersistenceService.saveTimer(updated, {
+      remainingMs: updated.durationMs,
+      status: 'IDLE',
+    });
 
     setEditing(null);
   }
@@ -83,7 +86,10 @@ export function TimerManager({ defaultRoots }: Props) {
     setTimers(parsed);
 
     for (const t of parsed) {
-      await PersistenceService.saveTimer(t, 'Idle' as any);
+      await PersistenceService.saveTimer(t, {
+        remainingMs: t.durationMs,
+        status: 'IDLE',
+      });handleReorder;
     }
   }
 
@@ -95,6 +101,7 @@ export function TimerManager({ defaultRoots }: Props) {
 
     for (const t of reordered) {
       await PersistenceService.saveTimer(t, 'Idle' as any);
+
     }
   }
 
