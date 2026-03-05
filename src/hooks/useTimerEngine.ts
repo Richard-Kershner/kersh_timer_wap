@@ -14,6 +14,8 @@ Corrected Execution Model
 
 import { useEffect, useRef, useState } from 'react';
 import { TimerNodeConfig } from '../models/TimerTypes';
+import { audioManager } from '../services/AudioManager';
+
 
 let audioUnlocked = false;
 
@@ -106,12 +108,7 @@ function tickNode(node: RuntimeNode): RuntimeNode {
 
     // 🔊 Play sound once
 // 🔊 Play sound once (reliable playback)
-    if (updated.effectiveSound) {
-      const audio = new Audio(`/sounds/${updated.effectiveSound}`);
-      audio.preload = 'auto';
-      audio.currentTime = 0;
-      audio.play().catch(() => {});
-    }
+    audioManager.play(updated.effectiveSound);
 
 
 

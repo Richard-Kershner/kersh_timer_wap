@@ -99,7 +99,7 @@ function NodeEditor({
 
       {/* SOUND DROPDOWN */}
       <select
-        value={node.inheritSound ? 'inherit' : node.sound ?? 'inherit'}
+        value={node.inheritSound ? 'inherit' : (node.sound ?? 'inherit')}
         onChange={(e) => {
           const value = e.target.value;
 
@@ -118,6 +118,7 @@ function NodeEditor({
           }
         }}
       >
+        <option value="none">No Sound</option>
         <option value="inherit">Inherit</option>
         {AVAILABLE_SOUNDS.map((s) => (
           <option key={s} value={s}>
@@ -125,7 +126,6 @@ function NodeEditor({
           </option>
         ))}
       </select>
-
 
       <div>
         <button onClick={addSequential}>+ Sequential</button>

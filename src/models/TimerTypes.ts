@@ -5,7 +5,8 @@ export interface TimerNodeConfig {
   name: string;
   durationMs: number;
 
-  sound?: string;
+  sound?: string | 'none';
+
   inheritSound: boolean;
 
   sequentialChild?: TimerNodeConfig;
