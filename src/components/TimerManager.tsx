@@ -1,11 +1,6 @@
 /*
 ===============================================================================
 FILE: src/components/TimerManager.tsx
-
-Owns:
-- TimerNodeConfig roots
-- Editing lifecycle
-- Persistence boundary
 ===============================================================================
 */
 
@@ -19,7 +14,7 @@ interface Props {
   defaultRoots: TimerNodeConfig[];
 }
 
-/* Deep clone */
+/* Deep clone helper */
 function cloneConfig(config: TimerNodeConfig): TimerNodeConfig {
   return JSON.parse(JSON.stringify(config));
 }
@@ -36,23 +31,30 @@ export function TimerManager({ defaultRoots }: Props) {
   const [timers, setTimers] = useState<TimerNodeConfig[]>([]);
   const [selected, setSelected] = useState<TimerNodeConfig | null>(null);
   const [editing, setEditing] = useState<TimerNodeConfig | null>(null);
+  const [showManager, setShowManager] = useState(false);
 
-  /* Initial load */
+  /* ================= INITIAL LOAD ================= */
+
   useEffect(() => {
     async function load() {
       const stored = await PersistenceService.loadAllTimers();
 
       if (stored.length > 0) {
-        setTimers(stored.map((s) => s.config));
+        const configs = stored.map((s) => s.config);
+        setTimers(configs);
+        setSelected(configs[0] ?? null);
       } else {
-        setTimers(defaultRoots.map((r) => cloneConfig(r)));
+        const defaults = defaultRoots.map((r) => cloneConfig(r));
+        setTimers(defaults);
+        setSelected(defaults[0] ?? null);
       }
     }
 
     load();
   }, [defaultRoots]);
 
-  /* Save */
+  /* ================= SAVE ================= */
+
   async function handleSave(updated: TimerNodeConfig) {
     const exists = timers.some((t) => t.id === updated.id);
 
@@ -61,6 +63,7 @@ export function TimerManager({ defaultRoots }: Props) {
       : [...timers, updated];
 
     setTimers(newTimers);
+    setSelected(updated);
 
     await PersistenceService.saveTimer(updated, {
       remainingMs: updated.durationMs,
@@ -70,7 +73,8 @@ export function TimerManager({ defaultRoots }: Props) {
     setEditing(null);
   }
 
-  /* Delete */
+  /* ================= DELETE ================= */
+
   async function handleDelete(id: string) {
     const filtered = timers.filter((t) => t.id !== id);
 
@@ -79,9 +83,16 @@ export function TimerManager({ defaultRoots }: Props) {
     await PersistenceService.deleteTimer(id);
 
     setEditing(null);
+
+    if (filtered.length > 0) {
+      setSelected(filtered[0]);
+    } else {
+      setSelected(null);
+    }
   }
 
-  /* Import */
+  /* ================= IMPORT ================= */
+
   async function handleImport(parsed: TimerNodeConfig[]) {
     setTimers(parsed);
 
@@ -89,89 +100,60 @@ export function TimerManager({ defaultRoots }: Props) {
       await PersistenceService.saveTimer(t, {
         remainingMs: t.durationMs,
         status: 'IDLE',
-      });handleReorder;
+      });
     }
+
+    setSelected(parsed[0] ?? null);
   }
 
-  /* Reorder */
+  /* ================= REORDER ================= */
+
   async function handleReorder(from: number, to: number) {
     const reordered = moveItem(timers, from, to);
 
     setTimers(reordered);
 
     for (const t of reordered) {
-      await PersistenceService.saveTimer(t, 'Idle' as any);
-
+      await PersistenceService.saveTimer(t, {
+        remainingMs: t.durationMs,
+        status: 'IDLE',
+      });
     }
   }
 
   /* ================= MAIN VIEW ================= */
-  if (!editing) {
+
+  if (!editing && !showManager) {
     return (
       <div style={{ padding: 20 }}>
+        <div style={{ marginBottom: 20 }}>
+          <button onClick={() => setShowManager(true)}>Alarms</button>
+        </div>
+
         <h1>Kersh Timer</h1>
 
-        {/* Export */}
-        <button
-          onClick={() => {
-            const blob = new Blob([JSON.stringify(timers, null, 2)], {
-              type: 'application/json',
-            });
+        {selected && <TimerRunner root={cloneConfig(selected)} />}
+      </div>
+    );
+  }
 
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'timers.json';
-            a.click();
-          }}
-        >
-          Export All
-        </button>
+  /* ================= ALARM MANAGER ================= */
 
-        {/* Import */}
-        <input
-          type="file"
-          accept="application/json"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
+  if (showManager && !editing) {
+    return (
+      <div style={{ padding: 20 }}>
+        <h2>Alarm Manager</h2>
 
-            const reader = new FileReader();
+        <button onClick={() => setShowManager(false)}>Back</button>
 
-            reader.onload = async () => {
-              const parsed: TimerNodeConfig[] = JSON.parse(
-                reader.result as string,
-              );
-
-              await handleImport(parsed);
-            };
-
-            reader.readAsText(file);
-          }}
-        />
-
-        {/* Timer List */}
-        {timers.map((t, index) => (
-          <div
-            key={t.id}
-            draggable
-            onDragStart={(e) =>
-              e.dataTransfer.setData('index', index.toString())
-            }
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              const from = Number(e.dataTransfer.getData('index'));
-
-              handleReorder(from, index);
-            }}
-            style={{ marginBottom: 8 }}
-          >
+        {timers.map((t) => (
+          <div key={t.id} style={{ marginTop: 10 }}>
             <span
-              style={{
-                cursor: 'pointer',
-                marginRight: 10,
+              style={{ cursor: 'pointer', marginRight: 10 }}
+              onClick={() => {
+                setSelected(t);
+                setShowManager(false);
               }}
-              onClick={() => setSelected(t)}
             >
               {t.name}
             </span>
@@ -180,18 +162,39 @@ export function TimerManager({ defaultRoots }: Props) {
           </div>
         ))}
 
-        {selected && <TimerRunner root={selected} />}
+        <div style={{ marginTop: 20 }}>
+          <button
+            onClick={() =>
+              setEditing({
+                id: crypto.randomUUID(),
+                name: 'New Alarm',
+                durationMs: 5000,
+                inheritSound: true,
+                sound: 'none',
+                parallelSiblings: [],
+                sequentialChild: undefined,
+              })
+            }
+          >
+            New Alarm
+          </button>
+        </div>
       </div>
     );
   }
 
   /* ================= EDIT VIEW ================= */
-  return (
-    <TimerEditor
-      config={editing}
-      onSave={handleSave}
-      onDelete={handleDelete}
-      onCancel={() => setEditing(null)}
-    />
-  );
+
+  if (editing) {
+    return (
+      <TimerEditor
+        config={editing}
+        onSave={handleSave}
+        onDelete={handleDelete}
+        onCancel={() => setEditing(null)}
+      />
+    );
+  }
+
+  return null;
 }

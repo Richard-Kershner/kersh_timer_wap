@@ -11,17 +11,63 @@ interface Props {
   root: TimerNodeConfig;
 }
 
-function format(ms: number) {
-  return Math.max(0, Math.floor(ms / 1000));
+function NodeBox({ node }: { node: RuntimeNode }) {
+  return (
+    <div
+      style={{
+        border: '1px solid #aaa',
+        padding: 10,
+        margin: 4,
+        textAlign: 'center',
+        minWidth: 120,
+      }}
+    >
+      <div>{node.config.name}</div>
+      <div>{Math.max(0, Math.floor(node.remainingMs / 1000))}s</div>
+      {node.active && <div>(running)</div>}
+    </div>
+  );
 }
 
-function renderNode(node: RuntimeNode, depth: number) {
+function renderChildren(node: RuntimeNode) {
+  const rows: RuntimeNode[] = [];
+
+  let current = node.sequential;
+
+  while (current) {
+    rows.push(current);
+    current = current.sequential;
+  }
+
+  if (rows.length === 0) return null;
+
   return (
-    <div key={node.config.id} style={{ marginLeft: depth * 20 }}>
-      {node.config.name} — {Math.max(0, Math.floor(node.remainingMs / 1000))}s{' '}
-      {node.active ? '(running)' : ''}
-      {node.parallel.map((p) => renderNode(p, depth + 1))}
-      {node.sequential && renderNode(node.sequential, depth + 1)}
+    <div style={{ marginTop: 10 }}>
+      {rows.map((child) => (
+        <NodeBox key={child.config.id} node={child} />
+      ))}
+    </div>
+  );
+}
+
+function renderColumns(root: RuntimeNode) {
+  const columns: RuntimeNode[] = [root, ...root.parallel];
+
+  return (
+    <div style={{ display: 'flex', gap: 20 }}>
+      {columns.map((col) => (
+        <div
+          key={col.config.id}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}
+        >
+          <NodeBox node={col} />
+          {renderChildren(col)}
+        </div>
+      ))}
     </div>
   );
 }
@@ -36,18 +82,22 @@ export function TimerRunner({ root }: Props) {
     reset,
   } = useTimerEngine(root);
 
-
   return (
     <div style={{ marginTop: 20 }}>
       <h3>{root.name}</h3>
 
       <div>State: {state}</div>
 
-      <button onClick={start}>Start</button>
-      <button onClick={pause}>Pause</button>
-      <button onClick={cancel}>Cancel</button>
+      <div style={{ marginTop: 10 }}>
+        <button onClick={start}>Start</button>
+        <button onClick={pause}>Pause</button>
+        <button onClick={cancel}>Cancel</button>
+        <button onClick={reset}>Reset</button>
+      </div>
 
-      <div style={{ marginTop: 20 }}>{renderNode(runtimeRoot, 0)}</div>
+      <div style={{ marginTop: 20 }}>
+        {runtimeRoot && renderColumns(runtimeRoot)}
+      </div>
     </div>
   );
 }
