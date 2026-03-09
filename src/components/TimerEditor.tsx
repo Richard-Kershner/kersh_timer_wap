@@ -3,13 +3,15 @@
 FILE: src/components/TimerEditor.tsx
 
 Recursive structural editor.
-Save always clones to new ID.
+Durations edited as HH:MM:SS but stored internally as milliseconds.
+Prepared for future UI skin system.
 ===============================================================================
 */
 
 import { useState } from 'react';
 import { TimerNodeConfig } from '../models/TimerTypes';
 import { AVAILABLE_SOUNDS } from '../audio/SoundRegistry';
+import { msToHMS, hmsToMs } from '../utils/timeUtils';
 
 interface Props {
   config: TimerNodeConfig;
@@ -32,6 +34,71 @@ function cloneWithNewIds(node: TimerNodeConfig): TimerNodeConfig {
       : undefined,
     parallelSiblings: node.parallelSiblings?.map(cloneWithNewIds),
   };
+}
+
+/* Duration Editor Component */
+function DurationEditor({
+  ms,
+  onChange,
+}: {
+  ms: number;
+  onChange: (ms: number) => void;
+}) {
+  const { hours, minutes, seconds } = msToHMS(ms);
+
+  const [h, setH] = useState(hours);
+  const [m, setM] = useState(minutes);
+  const [s, setS] = useState(seconds);
+
+  function update(nh = h, nm = m, ns = s) {
+    onChange(hmsToMs(nh, nm, ns));
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: 4 }}>
+      <input
+        type="number"
+        min={0}
+        value={h}
+        onChange={(e) => {
+          const v = Number(e.target.value);
+          setH(v);
+          update(v, m, s);
+        }}
+        style={{ width: 60 }}
+      />
+
+      <span>:</span>
+
+      <input
+        type="number"
+        min={0}
+        max={59}
+        value={m}
+        onChange={(e) => {
+          const v = Number(e.target.value);
+          setM(v);
+          update(h, v, s);
+        }}
+        style={{ width: 60 }}
+      />
+
+      <span>:</span>
+
+      <input
+        type="number"
+        min={0}
+        max={59}
+        value={s}
+        onChange={(e) => {
+          const v = Number(e.target.value);
+          setS(v);
+          update(h, m, v);
+        }}
+        style={{ width: 60 }}
+      />
+    </div>
+  );
 }
 
 /* Recursive Node Editor */
@@ -84,20 +151,26 @@ function NodeEditor({
 
   return (
     <div
-      style={{ marginLeft: 20, borderLeft: '1px solid #ccc', paddingLeft: 10 }}
+      style={{
+        marginLeft: 20,
+        borderLeft: '1px solid #ccc',
+        paddingLeft: 10,
+        marginTop: 10,
+      }}
     >
+      {/* NAME */}
       <input
         value={node.name}
         onChange={(e) => update('name', e.target.value)}
       />
 
-      <input
-        type="number"
-        value={node.durationMs ?? 0}
-        onChange={(e) => update('durationMs', Number(e.target.value))}
+      {/* DURATION */}
+      <DurationEditor
+        ms={node.durationMs ?? 0}
+        onChange={(ms) => update('durationMs', ms)}
       />
 
-      {/* SOUND DROPDOWN */}
+      {/* SOUND */}
       <select
         value={node.inheritSound ? 'inherit' : (node.sound ?? 'inherit')}
         onChange={(e) => {
@@ -120,6 +193,7 @@ function NodeEditor({
       >
         <option value="none">No Sound</option>
         <option value="inherit">Inherit</option>
+
         {AVAILABLE_SOUNDS.map((s) => (
           <option key={s} value={s}>
             {s}
@@ -127,6 +201,7 @@ function NodeEditor({
         ))}
       </select>
 
+      {/* ACTIONS */}
       <div>
         <button onClick={addSequential}>+ Sequential</button>
         <button onClick={addParallel}>+ Parallel</button>
@@ -137,6 +212,7 @@ function NodeEditor({
       {node.sequentialChild && (
         <>
           <button onClick={removeSequential}>Remove Sequential</button>
+
           <NodeEditor
             node={node.sequentialChild}
             onChange={(child) => update('sequentialChild', child)}

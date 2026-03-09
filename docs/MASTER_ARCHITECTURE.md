@@ -28,6 +28,18 @@ Kersh Timer is a deterministic, offline-first, nested timer engine.
 - clear header remarks describing use
 - inline remarks on all code
 - remarks should be none verbose and complete
+## Partial of directory structure
+src/
+  engine/
+    TimerEngine.ts 
+  viewmodels/ 
+    TimerViewModel.ts 
+  skins/ 
+    classic/
+      TimerNodeView.tsx 
+    minimal/
+      TimerNodeView.tsx
+
 ## All classes and processes must be tracked in this document:
 Current classeses
 ### src/audio/AudioManager.ts (audioService: AudioService; soundLibrary: SoundLibrary)

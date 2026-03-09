@@ -1,23 +1,34 @@
+/*
+===============================================================================
+AudioManager
+Supports overlapping alarm playback.
+===============================================================================
+*/
+
 class AudioManager {
-  private current?: HTMLAudioElement;
+  private active: HTMLAudioElement[] = [];
 
-  play(sound?: string | 'none') {
-    if (!sound || sound === 'none') return;
+  play(soundFile?: string) {
+    if (!soundFile || soundFile === 'none') return;
 
-    this.stop();
+    const audio = new Audio(`/sounds/${soundFile}`);
 
-    const audio = new Audio(`/sounds/${sound}`);
+    audio.addEventListener('ended', () => {
+      this.active = this.active.filter((a) => a !== audio);
+    });
+
     audio.play().catch(() => {});
 
-    this.current = audio;
+    this.active.push(audio);
   }
 
-  stop() {
-    if (this.current) {
-      this.current.pause();
-      this.current.currentTime = 0;
-      this.current = undefined;
+  stopAll() {
+    for (const a of this.active) {
+      a.pause();
+      a.currentTime = 0;
     }
+
+    this.active = [];
   }
 }
 
