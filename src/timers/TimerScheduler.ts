@@ -36,7 +36,7 @@ export class TimerScheduler {
       this.interval = undefined;
     }
     this.active.clear();
-    audioManager.stop();
+    audioManager.stopAll();
   }
 
   pause() {

@@ -2,51 +2,72 @@
 ===============================================================================
 FILE: src/services/AudioManager.ts
 
-Step 13 — Clean Centralized Audio Manager
+Step 15 — Multi-Channel Audio Manager
 
 Responsibilities:
 • Handles all alarm playback
+• Supports overlapping sounds
 • Supports "none" (silent alarms)
-• Prevents overlapping audio
 • Centralizes sound path resolution
+• Allows global stop
 ===============================================================================
 */
 
 class AudioManager {
-  private current?: HTMLAudioElement;
+  /* Active audio instances */
+  private active: Set<HTMLAudioElement> = new Set();
 
   play(sound?: string | 'none') {
     /* No sound selected */
     if (!sound || sound === 'none') return;
 
-    /* Stop previous sound */
-    this.stop();
-
     const src = this.resolveSoundPath(sound);
 
     const audio = new Audio(src);
 
-    audio.play().catch(() => {});
+    /* Track instance */
+    this.active.add(audio);
 
-    this.current = audio;
+    /* Remove when finished */
+    audio.addEventListener('ended', () => {
+      this.active.delete(audio);
+    });
+
+    audio.addEventListener('error', () => {
+      this.active.delete(audio);
+    });
+
+    /* Start playback */
+    audio.play().catch(() => {
+      this.active.delete(audio);
+    });
+  }
+
+  stopAll() {
+    for (const audio of this.active) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+
+    this.active.clear();
   }
 
   stop() {
-    if (this.current) {
-      this.current.pause();
-      this.current.currentTime = 0;
-      this.current = undefined;
-    }
+    this.stopAll();
   }
 
-  private resolveSoundPath(sound: string) {
-    /* Built-in sounds */
+  private resolveSoundPath(sound: string): string {
+    /* Built-in local sounds */
 
-    if (!sound.startsWith('blob:') && !sound.startsWith('http')) {
+    if (
+      !sound.startsWith('blob:') &&
+      !sound.startsWith('http') &&
+      !sound.startsWith('/')
+    ) {
       return `/sounds/${sound}`;
     }
 
-    /* Imported sounds later */
+    /* Imported / user selected files */
 
     return sound;
   }

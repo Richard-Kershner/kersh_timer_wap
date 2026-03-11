@@ -1,210 +1,157 @@
-/*
-===============================================================================
-FILE: src/hooks/useTimerEngine.ts
-
-Corrected Execution Model
-
-• Root and parallels activate on SAME tick boundary.
-• They decrement together.
-• Sequential activates ONLY after parent finishes.
-• Sounds fire exactly once on completion.
-• Reset supported after complete.
-===============================================================================
-*/
-
 import { useEffect, useRef, useState } from 'react';
 import { TimerNodeConfig } from '../models/TimerTypes';
-import { audioManager } from '../services/AudioManager';
+import { audioManager } from '../audio/AudioManager';
 
+type State = 'idle' | 'running' | 'complete';
 
-let audioUnlocked = false;
+export function useTimerEngine(root: TimerNodeConfig) {
+  const [state, setState] = useState<State>('idle');
+  const [remaining, setRemaining] = useState<Map<string, number>>(new Map());
 
-function unlockAudio() {
-  if (audioUnlocked) return;
+  const activeNodes = useRef<TimerNodeConfig[]>([]);
+  const interval = useRef<number | null>(null);
 
-  const audio = new Audio();
-  audio.src =
-      'data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAA...'; // 1-frame silent mp3
-  audio.play().catch(() => {});
-  audioUnlocked = true;
-}
+  function initialize(node: TimerNodeConfig, map: Map<string, number>) {
+    map.set(node.id, node.durationMs ?? 0);
 
+    if (node.sequentialChild) initialize(node.sequentialChild, map);
 
-export interface RuntimeNode {
-  config: TimerNodeConfig;
-  remainingMs: number;
-  active: boolean;
-  completed: boolean;
-  effectiveSound?: string;
-  parallel: RuntimeNode[];
-  sequential?: RuntimeNode;
-}
-
-function buildRuntime(
-  config: TimerNodeConfig,
-  inheritedSound?: string,
-): RuntimeNode {
-  const resolvedSound = config.inheritSound
-    ? inheritedSound
-    : (config.sound ?? inheritedSound);
-
-  return {
-    config,
-    remainingMs: config.durationMs,
-    active: false,
-    completed: false,
-    effectiveSound: resolvedSound,
-    parallel:
-      config.parallelSiblings?.map((p) => buildRuntime(p, resolvedSound)) ?? [],
-    sequential: config.sequentialChild
-      ? buildRuntime(config.sequentialChild, resolvedSound)
-      : undefined,
-  };
-}
-
-
-function activateTree(node: RuntimeNode): RuntimeNode {
-  return {
-    ...node,
-    active: true,
-    parallel: node.parallel.map(activateTree),
-  };
-}
-
-function tickNode(node: RuntimeNode): RuntimeNode {
-  let updated = node;
-
-  /* Tick self */
-  if (node.active && node.remainingMs > 0) {
-    updated = {
-      ...node,
-      remainingMs: node.remainingMs - 1000,
-    };
+    node.parallelSiblings?.forEach((p) => initialize(p, map));
   }
 
-  /* Tick parallels simultaneously */
-  const updatedParallels = updated.parallel.map((p) =>
-      p.active ? tickNode(p) : p
-  );
+  function activateNode(node: TimerNodeConfig) {
+    activeNodes.current.push(node);
 
-  updated = { ...updated, parallel: updatedParallels };
-
-  /* Handle completion */
-  if (
-      updated.active &&
-      updated.remainingMs <= 0 &&
-      !updated.completed
-  ) {
-    updated = {
-      ...updated,
-      remainingMs: 0,
-      active: false,
-      completed: true,
-      parallel: updated.parallel.map((p) => ({
-        ...p,
-        active: false,
-      })),
-    };
-
-    // 🔊 Play sound once
-// 🔊 Play sound once (reliable playback)
-    audioManager.play(updated.effectiveSound);
-
-
-
-    // Activate sequential AFTER parent finishes
-    if (updated.sequential) {
-      updated = {
-        ...updated,
-        sequential: activateTree(updated.sequential),
-      };
-    }
+    node.parallelSiblings?.forEach((p) => {
+      activeNodes.current.push(p);
+    });
   }
-
-  /* Tick sequential only if active */
-  if (updated.sequential?.active) {
-    updated = {
-      ...updated,
-      sequential: tickNode(updated.sequential),
-    };
-  }
-
-  return updated;
-}
-
-function treeFinished(node: RuntimeNode): boolean {
-  if (!node.completed) return false;
-
-  if (node.parallel.some((p) => !treeFinished(p))) return false;
-
-  if (node.sequential && !treeFinished(node.sequential)) return false;
-
-  return true;
-}
-
-export function useTimerEngine(rootConfig: TimerNodeConfig) {
-  const [root, setRoot] = useState<RuntimeNode>(() =>
-    buildRuntime(rootConfig, rootConfig.sound),
-  );
-
-
-  const [state, setState] =
-      useState<'idle' | 'running' | 'complete'>('idle');
-
-  const intervalRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    setRoot(buildRuntime(rootConfig, rootConfig.sound));
-    setState('idle');
-  }, [rootConfig]);
 
   function start() {
-    if (state === 'running') return;
+    const map = new Map<string, number>();
+    initialize(root, map);
 
-    unlockAudio();
+    setRemaining(map);
 
-    setRoot((prev) => activateTree(prev));
+    activeNodes.current = [];
+    activateNode(root);
+
     setState('running');
 
-    intervalRef.current = window.setInterval(() => {
-      setRoot((prev) => {
-        const next = tickNode(prev);
+    interval.current = window.setInterval(tick, 1000);
+  }
 
-        if (treeFinished(next)) {
-          if (intervalRef.current)
-            clearInterval(intervalRef.current);
-          setState('complete');
+  function resolveSound(
+    node: TimerNodeConfig,
+    root: TimerNodeConfig,
+  ): string | undefined {
+    if (!node.inheritSound) return node.sound;
+
+    function findParent(
+      target: TimerNodeConfig,
+      current: TimerNodeConfig,
+    ): TimerNodeConfig | null {
+      if (current.sequentialChild?.id === target.id) return current;
+
+      if (current.parallelSiblings?.some((p) => p.id === target.id))
+        return current;
+
+      let found = null;
+
+      if (current.sequentialChild)
+        found = findParent(target, current.sequentialChild);
+
+      if (found) return found;
+
+      for (const p of current.parallelSiblings ?? []) {
+        found = findParent(target, p);
+
+        if (found) return found;
+      }
+
+      return null;
+    }
+
+    let parent = findParent(node, root);
+
+    while (parent) {
+      if (!parent.inheritSound && parent.sound) return parent.sound;
+
+      parent = findParent(parent, root);
+    }
+
+    return undefined;
+  }
+
+  function tick() {
+    setRemaining((prev) => {
+      const next = new Map(prev);
+
+      activeNodes.current.forEach((node) => {
+        const current = next.get(node.id) ?? 0;
+
+        const updated = Math.max(current - 1000, 0);
+
+        next.set(node.id, updated);
+
+        if (current > 0 && updated === 0) {
+          /* play alarm */
+
+          const sound = resolveSound(node, root);
+
+          if (sound) {
+            audioManager.play(sound);
+          }
+
+          /* start child after parent */
+
+          if (node.sequentialChild) {
+            activateNode(node.sequentialChild);
+          }
         }
-
-        return next;
       });
-    }, 1000);
+
+      return next;
+    });
   }
 
   function pause() {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    setState('idle');
-  }
-
-  function cancel() {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    setRoot(buildRuntime(rootConfig, rootConfig.sound));
+    if (interval.current) clearInterval(interval.current);
     setState('idle');
   }
 
   function reset() {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    setRoot(buildRuntime(rootConfig, rootConfig.sound));
+    if (interval.current) clearInterval(interval.current);
+
+    const map = new Map<string, number>();
+    initialize(root, map);
+
+    setRemaining(map);
+
+    activeNodes.current = [];
     setState('idle');
   }
 
+  function cancel() {
+    if (interval.current) clearInterval(interval.current);
+
+    setRemaining(new Map());
+    activeNodes.current = [];
+    setState('idle');
+  }
+
+  useEffect(() => {
+    return () => {
+      if (interval.current) clearInterval(interval.current);
+    };
+  }, []);
+
   return {
-    root,
     state,
+    remaining,
     start,
     pause,
-    cancel,
     reset,
+    cancel,
   };
 }
