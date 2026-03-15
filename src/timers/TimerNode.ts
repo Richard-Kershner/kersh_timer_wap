@@ -1,4 +1,4 @@
-import { TimerNodeConfig } from '../models/TimerTypes';
+import { TimerNodeConfig, AlarmSkinType } from '../models/TimerTypes';
 
 export class TimerNode {
   id: string;
@@ -14,6 +14,10 @@ export class TimerNode {
   inheritSound?: boolean;
   sound?: string;
 
+  /* skin system */
+  skin?: AlarmSkinType;
+  inheritSkin?: boolean;
+
   constructor(config: TimerNodeConfig, parent?: TimerNode) {
     this.id = config.id;
     this.name = config.name;
@@ -25,6 +29,9 @@ export class TimerNode {
     this.inheritSound = config.inheritSound;
     this.sound = config.sound;
 
+    this.skin = config.skin;
+    this.inheritSkin = config.inheritSkin ?? true;
+
     if (config.sequentialChild) {
       this.sequentialChild = new TimerNode(config.sequentialChild, this);
     }
@@ -34,6 +41,18 @@ export class TimerNode {
         (p) => new TimerNode(p, this),
       );
     }
+  }
+
+  resolveSkin(): AlarmSkinType {
+    if (!this.inheritSkin && this.skin) {
+      return this.skin;
+    }
+
+    if (this.parent) {
+      return this.parent.resolveSkin();
+    }
+
+    return 'CIRCLE';
   }
 
   reset() {
