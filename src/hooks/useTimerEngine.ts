@@ -1,153 +1,53 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { TimerNodeConfig } from '../models/TimerTypes';
-import { audioManager } from '../audio/AudioManager';
+import { TimerGraph } from '../timers/TimerGraph';
+import { TimerScheduler } from '../timers/TimerScheduler';
 
-type State = 'idle' | 'running' | 'complete';
+export function useTimerEngine(config: TimerNodeConfig) {
+  const schedulerRef = useRef<TimerScheduler | null>(null);
 
-export function useTimerEngine(root: TimerNodeConfig) {
-  const [state, setState] = useState<State>('idle');
   const [remaining, setRemaining] = useState<Map<string, number>>(new Map());
 
-  const activeNodes = useRef<TimerNodeConfig[]>([]);
-  const interval = useRef<number | null>(null);
-
-  function initialize(node: TimerNodeConfig, map: Map<string, number>) {
-    map.set(node.id, node.durationMs ?? 0);
-
-    if (node.sequentialChild) initialize(node.sequentialChild, map);
-
-    node.parallelSiblings?.forEach((p) => initialize(p, map));
+  if (!schedulerRef.current) {
+    const graph = new TimerGraph(config);
+    schedulerRef.current = new TimerScheduler(graph);
   }
 
-  function activateNode(node: TimerNodeConfig) {
-    activeNodes.current.push(node);
+  const scheduler = schedulerRef.current;
 
-    node.parallelSiblings?.forEach((p) => {
-      activeNodes.current.push(p);
-    });
-  }
+  const uiInterval = useRef<number | null>(null);
 
   function start() {
-    const map = new Map<string, number>();
-    initialize(root, map);
+    scheduler.start();
 
-    setRemaining(map);
+    if (uiInterval.current) clearInterval(uiInterval.current);
 
-    activeNodes.current = [];
-    activateNode(root);
-
-    setState('running');
-
-    interval.current = window.setInterval(tick, 1000);
-  }
-
-  function resolveSound(
-    node: TimerNodeConfig,
-    root: TimerNodeConfig,
-  ): string | undefined {
-    if (!node.inheritSound) return node.sound;
-
-    function findParent(
-      target: TimerNodeConfig,
-      current: TimerNodeConfig,
-    ): TimerNodeConfig | null {
-      if (current.sequentialChild?.id === target.id) return current;
-
-      if (current.parallelSiblings?.some((p) => p.id === target.id))
-        return current;
-
-      let found = null;
-
-      if (current.sequentialChild)
-        found = findParent(target, current.sequentialChild);
-
-      if (found) return found;
-
-      for (const p of current.parallelSiblings ?? []) {
-        found = findParent(target, p);
-
-        if (found) return found;
-      }
-
-      return null;
-    }
-
-    let parent = findParent(node, root);
-
-    while (parent) {
-      if (!parent.inheritSound && parent.sound) return parent.sound;
-
-      parent = findParent(parent, root);
-    }
-
-    return undefined;
-  }
-
-  function tick() {
-    setRemaining((prev) => {
-      const next = new Map(prev);
-
-      activeNodes.current.forEach((node) => {
-        const current = next.get(node.id) ?? 0;
-
-        const updated = Math.max(current - 1000, 0);
-
-        next.set(node.id, updated);
-
-        if (current > 0 && updated === 0) {
-          /* play alarm */
-
-          const sound = resolveSound(node, root);
-
-          if (sound) {
-            audioManager.play(sound);
-          }
-
-          /* start child after parent */
-
-          if (node.sequentialChild) {
-            activateNode(node.sequentialChild);
-          }
-        }
-      });
-
-      return next;
-    });
+    uiInterval.current = window.setInterval(() => {
+      setRemaining(new Map(scheduler.getRemainingMap()));
+    }, 200);
   }
 
   function pause() {
-    if (interval.current) clearInterval(interval.current);
-    setState('idle');
+    scheduler.stop();
   }
 
   function reset() {
-    if (interval.current) clearInterval(interval.current);
+    scheduler.stop();
 
-    const map = new Map<string, number>();
-    initialize(root, map);
+    scheduler.graph.root.reset();
 
-    setRemaining(map);
-
-    activeNodes.current = [];
-    setState('idle');
+    setRemaining(new Map(scheduler.getRemainingMap()));
   }
 
   function cancel() {
-    if (interval.current) clearInterval(interval.current);
+    scheduler.stop();
+
+    scheduler.graph.root.reset();
 
     setRemaining(new Map());
-    activeNodes.current = [];
-    setState('idle');
   }
 
-  useEffect(() => {
-    return () => {
-      if (interval.current) clearInterval(interval.current);
-    };
-  }, []);
-
   return {
-    state,
     remaining,
     start,
     pause,

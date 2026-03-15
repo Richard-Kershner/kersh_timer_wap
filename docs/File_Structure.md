@@ -1,50 +1,51 @@
-src/
-audio/
+## src/
+
+### audio/
 AudioManager.ts
 SoundLibrary.ts
 SoundRegistry.ts
 
-components/
+### components/
 TimerEditor.tsx
 TimerRunner.tsx
 TimerManager.tsx
 TimerSelector.tsx
+DurationEditor.tsx
 
-engine/
-TimerEngine.ts
-
-hooks/
+### hooks/
 useTimerEngine.ts
 
 models/
 AudioTypes.ts
 TimerTypes.ts
 
-pwa/
+### pwa/
 registerServiceWorker.ts
 
-services/
-AudioService.ts
+### services/
 PersistenceService.ts
 
-skins/
+### skins/
 TimerSkin.ts
-classic/
+#### classic/
+ColumnEditorSkin.tsx
+ColumnRunnerSkin.tsx
 TimerNodeView.tsx
 minimal/
 TimerNodeView.tsx
 
-timers/
+### timers/
 TimerGraph.ts
 TimerNode.ts
+TimerScheduler.ts
 
-utils/
+### utils/
 timeUtils.ts
 
-viewmodels/
+### viewmodels/
 TimerViewModel.ts
 
-main.tsx
-vite-env.d.ts
+### main.tsx
+### vite-env.d.ts
 
-index.html
+### index.html

@@ -1,432 +1,187 @@
-Class & Process Tracking
-src/audio/AudioManager.ts (active: HTMLAudioElement[])
+# Timer System Class / Method Map
 
-Used by:
-TimerScheduler; useTimerEngine
+---
 
-Methods
-
-– constructor()
-Used by ext: application bootstrap
-
-– play(soundFile?: string)
+### src/audio/AudioManager.ts (active: HTMLAudioElement[])
 Used by: TimerScheduler; useTimerEngine
+- constructor()
+- play(soundFile?: string)
+- stop()
+- stopAll()
+- registerActive(audio: HTMLAudioElement)
 
-– stopAll()
-Used by: TimerScheduler; UI stop action
+---
 
-– registerActive(audio: HTMLAudioElement)
-Used by: internal only
-
-Purpose
-Manages overlapping audio playback channels.
-
-src/audio/SoundLibrary.ts (none)
-
+### src/audio/SoundLibrary.ts (none)
 Used by: AudioManager
+- resolve(soundId: string)
 
-Methods
+---
 
-– resolve(soundId: string)
-Used by: AudioManager
-
-Purpose
-Maps logical sound identifiers to sound asset files.
-
-src/audio/SoundRegistry.ts (AVAILABLE_SOUNDS: string[])
-
+### src/audio/SoundRegistry.ts (AVAILABLE_SOUNDS: string[])
 Used by: TimerEditor
 
-Purpose
-Defines the list of selectable alarm sounds.
+---
 
-UI Components
-src/components/TimerEditor.tsx (config: TimerNodeConfig)
-
+### src/components/TimerEditor.tsx (config: TimerNodeConfig)
 Used by: TimerManager
+- generateId()
+- cloneWithNewIds(node: TimerNodeConfig)
+- TimerEditor(config, onSave, onDelete, onCancel)
 
-Methods
+---
 
-– generateId()
-Used by: NodeEditor
-
-– cloneWithNewIds(node)
-
-Used by: Save As New logic
-
-– TimerEditor(config, onSave, onDelete, onCancel)
-
+### src/components/TimerRunner.tsx (root: TimerNodeConfig)
 Used by: TimerManager
+- TimerRunner(root: TimerNodeConfig)
 
-Purpose
-Recursive editor for timer trees.
+---
 
-src/components/TimerRunner.tsx (root: TimerNodeConfig)
-
-Used by: TimerManager
-
-Methods
-
-– TimerRunner(root)
-
-Used by: main UI
-
-– renderNode(node)
-
-Used by: TimerRunner
-
-Purpose
-Visual runtime timer display.
-
-src/components/TimerManager.tsx (defaultRoots: TimerNodeConfig[])
-
+### src/components/TimerManager.tsx (defaultRoots: TimerNodeConfig[])
 Used by: main.tsx
+- handleSave(config: TimerNodeConfig)
+- handleDelete(id: string)
+- handleImport(configs: TimerNodeConfig[])
 
-Methods
+---
 
-– handleSave(config)
-
-– handleDelete(id)
-
-– handleImport(configs)
-
-Purpose
-Top-level alarm manager UI.
-
-Handles:
-
-• alarm selection
-• alarm editing
-• alarm execution
-
-src/components/TimerSelector.tsx (onSelect: (config) => void)
-
+### src/components/TimerSelector.tsx (onSelect: (config) => void)
 Used by: TimerManager
+- loadTimers()
+- handleDelete(id: string)
 
-Methods
+---
 
-– loadTimers()
+### src/components/DurationEditor.tsx (valueMs: number)
+Used by: TimerEditor; ColumnEditorSkin
+- DurationEditor(valueMs, onChange)
 
-– handleDelete(id)
+---
 
-Purpose
-Lists stored alarms.
+### src/hooks/useTimerEngine.ts (schedulerRef: TimerScheduler | null)
+Used by: TimerRunner
+- useTimerEngine(rootConfig: TimerNodeConfig)
+- start()
+- pause()
+- reset()
+- cancel()
 
-Timer Engine Layer
-src/engine/TimerEngine.ts
+---
 
+### src/models/TimerTypes.ts (none)
+Used by: TimerEditor; TimerRunner; TimerScheduler; PersistenceService
+- TimerState (enum)
+- TimerNodeConfig (type)
+
+---
+
+### src/models/AudioTypes.ts (none)
+Used by: AudioManager; SoundLibrary
+- SoundRef (type)
+- TimerAudioConfig (type)
+- AudioChannelType (enum)
+
+---
+
+### src/timers/TimerNode.ts (id: string; durationMs: number; parent?: TimerNode)
+Used by: TimerGraph; TimerScheduler
+- constructor(config: TimerNodeConfig, parent?: TimerNode)
+- reset()
+
+---
+
+### src/timers/TimerGraph.ts (root: TimerNode)
+Used by: TimerScheduler
+- constructor(rootConfig: TimerNodeConfig)
+- traverseDepthFirst(visitor)
+- collectAllNodes()
+- collectLeafNodes()
+
+---
+
+### src/timers/TimerScheduler.ts (graph: TimerGraph; activeNodes: Set<TimerNode>)
 Used by: useTimerEngine
+- start()
+- stop()
+- activateNode(node: TimerNode)
+- completeNode(node: TimerNode)
+- resolveSound(node: TimerNode)
+- getRemainingMap()
 
-Purpose
-Central timing scheduler.
+---
 
-src/hooks/useTimerEngine.ts
+### src/services/PersistenceService.ts (none)
+Used by: TimerManager; TimerSelector
+- saveTimer(timer: TimerNodeConfig)
+- loadTimer(timerId: string)
+- loadAllTimers()
+- deleteTimer(timerId: string)
+- saveSkin(skin: string)
+- loadSkin()
 
+---
+
+### src/skins/TimerSkin.ts (interface)
 Used by: TimerRunner
+- renderNode(node: TimerNodeConfig, remainingMs: number)
 
-Methods
+---
 
-– useTimerEngine(rootConfig)
+### src/skins/classic/ColumnEditorSkin.tsx (none)
+Used by: TimerEditor
+- ColumnEditorSkin(props)
 
-Purpose
-React integration for TimerEngine.
+---
 
-Timer Model Layer
-src/models/TimerTypes.ts
-
-Used by:
-TimerEngine; TimerEditor; TimerRunner; AudioManager; PersistenceService
-
-Types
-
-– TimerState (enum)
-
-– TimerNodeConfig
-
-Fields:
-
-id
-name
-durationMs
-inheritSound
-sound
-parallelSiblings
-sequentialChild
-
-Purpose
-Defines timer structure.
-
-src/models/AudioTypes.ts
-
-Used by:
-
-AudioManager
-SoundLibrary
-
-Types
-
-– SoundRef
-
-– TimerAudioConfig
-
-– AudioChannelType (enum)
-
-Purpose
-Defines audio playback structure.
-
-Graph / Execution Layer
-src/timers/TimerNode.ts (config: TimerConfig)
-
-Used by:
-
-TimerGraph
-TimerRunner
-TimerEngine
-
-Methods
-
-– constructor(config)
-
-– addChild(child)
-
-– getExecutableChildren()
-
-– hasChildren()
-
-Purpose
-Represents a timer node.
-
-src/timers/TimerGraph.ts (root: TimerNode)
-
-Used by:
-
-TimerEngine
-diagnostics
-
-Methods
-
-– constructor(root)
-
-– traverseDepthFirst(visitor)
-
-– collectAllNodes()
-
-– collectLeafNodes()
-
-Purpose
-Graph traversal utilities.
-
-Services
-src/services/AudioService.ts
-
-Used by: AudioManager
-
-Methods
-
-– play(assetId, channel)
-
-– playLoop(assetId, channel)
-
-– stopChannel(channel)
-
-Purpose
-Low-level audio playback abstraction.
-
-src/services/PersistenceService.ts
-
-Used by:
-
-TimerEditor
-TimerManager
-
-Methods
-
-– saveTimer(timer, state)
-
-– loadTimer(timerId)
-
-– loadAllTimers()
-
-– deleteTimer(timerId)
-
-– saveSkin(skin)
-
-– loadSkin()
-
-Purpose
-Persistent storage layer.
-
-Skins System
-src/skins/TimerSkin.ts
-
+### src/skins/classic/ColumnRunnerSkin.tsx (none)
 Used by: TimerRunner
+- ColumnRunnerSkin(props)
 
-Interface
-renderNode(node: TimerNodeConfig, remainingMs: number)
+---
 
-Purpose
-Defines pluggable UI renderers.
+### src/skins/classic/TimerNodeView.tsx (node: TimerNodeConfig)
+Used by: Classic skins
+- TimerNodeView(node)
 
-src/skins/classic/TimerNodeView.tsx
+---
 
-Used by: ClassicSkin
+### src/skins/minimal/TimerNodeView.tsx (node: TimerNodeConfig)
+Used by: Minimal skins
+- TimerNodeView(node)
 
-Purpose
-Current default visual style.
+---
 
-src/skins/minimal/TimerNodeView.tsx
+### src/utils/timeUtils.ts (none)
+Used by: TimerEditor; TimerRunner; DurationEditor
+- msToHMS(ms: number)
+- hmsToMs(h: number, m: number, s: number)
+- formatHMS(ms: number)
 
-Used by: MinimalSkin
+---
 
-Purpose
-Future lightweight display skin.
+### src/viewmodels/TimerViewModel.ts (none)
+Used by: TimerRunner; skins
 
-Utility Layer
-src/utils/timeUtils.ts
+---
 
-Used by:
+### src/pwa/registerServiceWorker.ts (none)
+Used by: main.tsx
+- registerServiceWorker()
 
-TimerEditor
-TimerRunner
+---
 
-Methods
-
-– msToHMS(ms)
-
-– hmsToMs(h,m,s)
-
-– formatHMS(ms)
-
-Purpose
-Time conversion utilities.
-
-ViewModel Layer
-src/viewmodels/TimerViewModel.ts
-
-Used by:
-
-TimerRunner
-skins
-
-Purpose
-Separates rendering data from timer engine state.
-
-Application Entry
-src/main.tsx
-
+### src/main.tsx (none)
 Used by: index.html
+- ReactDOM.createRoot().render()
+- registerServiceWorker()
 
-Functions
+---
 
-– ReactDOM.createRoot().render()
-
-– registerServiceWorker()
-
-Purpose
-Application bootstrap.
-
-src/vite-env.d.ts
-
+### src/vite-env.d.ts (none)
 Used by: TypeScript compiler
 
-index.html
+---
 
+### index.html (none)
 Used by: Browser
-
-Defines root DOM container.
-
-Part 2 — Editor Layout Upgrade
-
-You requested:
-
-Child timers → appear below parent
-Parallel timers → appear in column to the right
-
-This requires grid layout instead of indentation recursion.
-
-Desired Structure
-
-Example timer tree:
-
-Main
-├─ Parallel A
-├─ Parallel B
-│   └─ Child B1
-└─ Child A
-
-Should render like:
-
-| Main | Parallel A | Parallel B |
-|ChildA|            | Child B1   |
-Implementation Approach
-
-Replace the NodeEditor container with a grid layout.
-
-Key concept
-
-Each node creates a grid column group.
-
-Children extend downward.
-
-Core Layout Code
-
-Inside NodeEditor
-
-Replace container with:
-
-<div
-  style={{
-    display: "grid",
-    gridTemplateColumns: `repeat(${(node.parallelSiblings?.length ?? 0) + 1}, 1fr)`,
-    gap: 20,
-    alignItems: "start"
-  }}
->
-Render Parent + Parallel Nodes
-Parent column = first column
-Parallel siblings = next columns
-
-Example:
-
-<div>
-  <NodeCard node={node} />
-
-{node.sequentialChild && (
-<NodeEditor
-node={node.sequentialChild}
-onChange={(child) => update("sequentialChild", child)}
-/>
-)}
-</div>
-
-{node.parallelSiblings?.map((p,i)=>(
-  <div key={p.id}>
-    <NodeEditor
-      node={p}
-      onChange={(updated)=>{
-        const list=[...(node.parallelSiblings??[])]
-        list[i]=updated
-        update("parallelSiblings",list)
-      }}
-    />
-  </div>
-))}
-Result
-
-Visually becomes:
-
-[ Parent ] [ Parallel1 ] [ Parallel2 ]
-|
-[ Child ]
-
-Exactly matching your requested behavior.
-
-Future Skin Integration
-
-Because this is in NodeEditor only, skins can later override:
-
-skins/classic/EditorNodeView.tsx
-skins/minimal/EditorNodeView.tsx
-skins/graph/EditorNodeView.tsx
-
-So the architecture remains compatible.
+- root container (#root)

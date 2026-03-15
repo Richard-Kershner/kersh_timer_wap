@@ -1,33 +1,25 @@
-import { TimerNodeConfig, TimerStatus } from '../models/TimerTypes';
-import { audioManager } from '../audio/AudioManager';
-
-interface RuntimeState {
-  remainingMs: number;
-  status: TimerStatus;
-  effectiveSound?: string;
-  parent?: RuntimeState;
-  config: TimerNodeConfig;
-}
+import { TimerGraph } from './TimerGraph';
+import { TimerNode } from './TimerNode';
+import { audioManager } from '../services/AudioManager';
 
 export class TimerScheduler {
-  private active = new Map<string, RuntimeState>();
-  private root?: TimerNodeConfig;
-  private interval?: number;
-  private onUpdate?: () => void;
+  graph: TimerGraph;
+  activeNodes: Set<TimerNode> = new Set();
 
-  constructor(onUpdate?: () => void) {
-    this.onUpdate = onUpdate;
+  interval?: number;
+
+  constructor(graph: TimerGraph) {
+    this.graph = graph;
   }
 
-  /* =========================
-     PUBLIC API
-     ========================= */
+  start() {
+    this.activeNodes.clear();
 
-  start(root: TimerNodeConfig) {
-    this.stop();
-    this.root = root;
-    this.activateNode(root, undefined, root.sound);
-    this.interval = window.setInterval(() => this.tick(), 50);
+    const root = this.graph.root;
+
+    this.activateNode(root);
+
+    this.interval = window.setInterval(() => this.tick(), 1000);
   }
 
   stop() {
@@ -35,144 +27,74 @@ export class TimerScheduler {
       clearInterval(this.interval);
       this.interval = undefined;
     }
-    this.active.clear();
+
     audioManager.stopAll();
   }
 
-  pause() {
-    if (this.interval) {
-      clearInterval(this.interval);
-      this.interval = undefined;
-    }
-  }
+  private activateNode(node: TimerNode) {
+    this.activeNodes.add(node);
 
-  resume() {
-    if (!this.interval) {
-      this.interval = window.setInterval(() => this.tick(), 50);
-    }
-  }
-
-  reset() {
-    this.stop();
-    if (this.root) {
-      this.start(this.root);
-    }
-  }
-
-  getActiveStates() {
-    return this.active;
-  }
-
-  getRuntimeState() {
-    return this.active;
-  }
-
-  /* =========================
-     INTERNAL ENGINE
-     ========================= */
-
-  private activateNode(
-    config: TimerNodeConfig,
-    parent?: RuntimeState,
-    inheritedSound?: string,
-  ) {
-    const effectiveSound =
-      config.inheritSound === false ? config.sound : inheritedSound;
-
-    const state: RuntimeState = {
-      remainingMs: config.durationMs,
-      status: 'RUNNING',
-      effectiveSound,
-      parent,
-      config,
-    };
-
-    this.active.set(config.id, state);
-
-    // Start parallel siblings immediately
-    if (config.parallelSiblings) {
-      for (const sibling of config.parallelSiblings) {
-        this.activateNode(sibling, state, effectiveSound);
-      }
-    }
-
-    // Duration 0 triggers instantly
-    if (config.durationMs === 0) {
-      this.completeNode(state);
-    }
+    node.parallelSiblings.forEach((p) => {
+      this.activeNodes.add(p);
+    });
   }
 
   private tick() {
-    const completed: RuntimeState[] = [];
+    const finished: TimerNode[] = [];
 
-    for (const state of this.active.values()) {
-      if (state.status !== 'RUNNING') continue;
+    this.activeNodes.forEach((node) => {
+      if (node.remainingMs <= 0) return;
 
-      state.remainingMs -= 50;
+      node.remainingMs -= 1000;
 
-      if (state.remainingMs <= 0) {
-        completed.push(state);
+      if (node.remainingMs <= 0) {
+        finished.push(node);
       }
-    }
+    });
 
-    for (const state of completed) {
-      this.completeNode(state);
-    }
-
-    this.onUpdate?.();
+    finished.forEach((node) => this.completeNode(node));
   }
 
-  private completeNode(state: RuntimeState) {
-    if (state.status !== 'RUNNING') return;
+  private completeNode(node: TimerNode) {
+    this.activeNodes.delete(node);
 
-    state.status = 'COMPLETE';
+    /* play alarm */
 
-    if (state.effectiveSound) {
-      audioManager.play(state.effectiveSound);
+    const sound = this.resolveSound(node);
+
+    if (sound) {
+      audioManager.play(sound);
     }
 
-    // Stop parallel siblings immediately
-    if (state.parent) {
-      const siblings = state.parent.config.parallelSiblings;
-      if (siblings) {
-        for (const sibling of siblings) {
-          if (sibling.id !== state.config.id) {
-            this.forceStop(sibling.id);
-          }
-        }
-      }
-    }
 
-    // Remove completed node from active set
-    this.active.delete(state.config.id);
+    /* start sequential child */
 
-    // Start sequential child
-    if (state.config.sequentialChild) {
-      this.activateNode(
-        state.config.sequentialChild,
-        state,
-        state.effectiveSound,
-      );
+    if (node.sequentialChild) {
+      this.activateNode(node.sequentialChild);
     }
   }
 
-  private forceStop(id: string) {
-    const state = this.active.get(id);
-    if (!state) return;
+  getRemainingMap(): Map<string, number> {
+    const map = new Map<string, number>();
 
-    state.status = 'STOPPED';
-    this.active.delete(id);
+    this.graph.collectAllNodes().forEach((n) => {
+      map.set(n.id, n.remainingMs);
+    });
 
-    // Stop sequential subtree
-    if (state.config.sequentialChild) {
-      this.forceStop(state.config.sequentialChild.id);
-    }
+    return map;
+  }
+  private resolveSound(node: TimerNode): string | undefined {
+    let current: TimerNode | undefined = node;
 
-    // Stop parallel subtree
-    if (state.config.parallelSiblings) {
-      for (const s of state.config.parallelSiblings) {
-        this.forceStop(s.id);
+    while (current) {
+      if (!current.inheritSound && current.sound) {
+        return current.sound;
       }
+
+      current = current.parent;
     }
+
+    return undefined;
   }
 }
+
