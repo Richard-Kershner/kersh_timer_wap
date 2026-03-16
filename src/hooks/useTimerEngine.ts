@@ -1,50 +1,54 @@
-import { useRef, useState } from 'react';
-import { TimerNodeConfig } from '../models/TimerTypes';
-import { TimerGraph } from '../timers/TimerGraph';
+import { useRef, useState, useEffect } from 'react';
 import { TimerScheduler } from '../timers/TimerScheduler';
+import { TimerNodeConfig } from '../models/TimerTypes';
 
-export function useTimerEngine(config: TimerNodeConfig) {
+export function useTimerEngine(rootConfig: TimerNodeConfig) {
   const schedulerRef = useRef<TimerScheduler | null>(null);
 
   const [remaining, setRemaining] = useState<Map<string, number>>(new Map());
 
-  if (!schedulerRef.current) {
-    const graph = new TimerGraph(config);
-    schedulerRef.current = new TimerScheduler(graph);
-  }
+  useEffect(() => {
+    const scheduler = new TimerScheduler(rootConfig);
 
-  const scheduler = schedulerRef.current;
+    schedulerRef.current = scheduler;
 
-  const uiInterval = useRef<number | null>(null);
+    setRemaining(scheduler.getRemainingMap());
+  }, [rootConfig]);
 
   function start() {
-    scheduler.start();
+    schedulerRef.current?.start();
 
-    if (uiInterval.current) clearInterval(uiInterval.current);
-
-    uiInterval.current = window.setInterval(() => {
-      setRemaining(new Map(scheduler.getRemainingMap()));
-    }, 200);
+    startTickLoop();
   }
 
   function pause() {
-    scheduler.stop();
+    schedulerRef.current?.stop();
   }
 
   function reset() {
-    scheduler.stop();
+    schedulerRef.current?.reset();
 
-    scheduler.graph.root.reset();
-
-    setRemaining(new Map(scheduler.getRemainingMap()));
+    setRemaining(schedulerRef.current?.getRemainingMap() ?? new Map());
   }
 
   function cancel() {
-    scheduler.stop();
+    schedulerRef.current?.reset();
 
-    scheduler.graph.root.reset();
+    setRemaining(schedulerRef.current?.getRemainingMap() ?? new Map());
+  }
 
-    setRemaining(new Map());
+  function startTickLoop() {
+    const scheduler = schedulerRef.current;
+
+    if (!scheduler) return;
+
+    const interval = setInterval(() => {
+      setRemaining(new Map(scheduler.getRemainingMap()));
+
+      if (scheduler.isComplete()) {
+        clearInterval(interval);
+      }
+    }, 100);
   }
 
   return {

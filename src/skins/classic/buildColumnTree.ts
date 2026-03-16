@@ -1,9 +1,3 @@
-/*
-===============================================================================
-Builds column-aligned timer tree structure.
-===============================================================================
-*/
-
 import { TimerNodeConfig } from '../../models/TimerTypes';
 
 export interface ColumnNode {
@@ -15,25 +9,25 @@ export interface ColumnNode {
 export function buildColumnTree(root: TimerNodeConfig): ColumnNode[] {
   const result: ColumnNode[] = [];
 
-  function traverse(node: TimerNodeConfig, column: number, row: number) {
+  function walk(node: TimerNodeConfig, column: number, row: number) {
     result.push({
       node,
       column,
       row,
     });
 
-    /* sequential child goes downward */
-    if (node.sequentialChild) {
-      traverse(node.sequentialChild, column, row + 1);
-    }
+    const parallels = node.parallelSiblings ?? [];
 
-    /* parallels go right */
-    node.parallelSiblings?.forEach((p, index) => {
-      traverse(p, column + index + 1, row);
+    parallels.forEach((p, i) => {
+      walk(p, column + i + 1, row);
     });
+
+    if (node.sequentialChild) {
+      walk(node.sequentialChild, column, row + 1);
+    }
   }
 
-  traverse(root, 0, 0);
+  walk(root, 0, 0);
 
   return result;
 }

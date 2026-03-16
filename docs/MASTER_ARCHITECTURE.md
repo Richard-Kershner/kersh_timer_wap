@@ -28,153 +28,317 @@ Kersh Timer is a deterministic, offline-first, nested timer engine.
 - clear header remarks describing use
 - inline remarks on all code
 - remarks should be none verbose and complete
-## Partial of directory structure
-src/
-  engine/
-    TimerEngine.ts 
-  viewmodels/ 
-    TimerViewModel.ts 
-  skins/ 
-    classic/
-      TimerNodeView.tsx 
-    minimal/
-      TimerNodeView.tsx
+# Kersh Timer – Architecture Overview
 
-## All classes and processes must be tracked in this document:
-Current classeses
-### src/audio/AudioManager.ts (audioService: AudioService; soundLibrary: SoundLibrary)
-Used by: TimerScheduler; AudioService 
-– constructor(audioService: AudioService; soundLibrary: SoundLibrary)
-Used by ext: application bootstrap / dependency injector
-– playAlarm(config: TimerAudioConfig)
-Used by ext: TimerScheduler
-– startBackground(config: TimerAudioConfig)
-Used by: TimerScheduler
-– stopAll(none)
-Used by ext: TimerScheduler
-– registerActive(channel: AudioChannelType; assetId: string)
-Used by: internal only
-### src/audio/SoundLibrary.ts (none)
-Used by: AudioManager
-– resolve(soundId: string)
-Uses ext: none
-Used by: AudioManager
-### src/components/TimerEditor.tsx (selected?: TimerConfig; onSaved: () => void)
-Used by: Parent UI container (renders TimerEditor; passes selected & onSaved)
-– generateId(none)
-Used by: TimerEditor
-– TimerEditor(selected?: TimerConfig; onSaved: () => void)
-Used by: Parent UI container
-– handleSave(none)
-Used by: TimerEditor (Save button onClick)
-### src/components/TimerRunner.tsx (root: TimerNode)
-Used by: Parent UI container (functional demo view)
-– format(ms: number)
-Used by: TimerRunner
-– TimerRunner(root: TimerNode)
-Used by: Parent UI container
-– renderNode(node: TimerNode; depth: number)
-Used by: TimerRunner
-### src/components/TimerSelector.tsx (onSelect: (config: TimerConfig) => void)
-Used byt: Parent UI container (receives selected TimerConfig)
-– TimerSelector(onSelect: (config: TimerConfig) => void)
-Used by: Parent UI container
-– loadTimers(none)
-Used by: TimerSelector (useEffect; handleDelete)
-– handleDelete(id: string)
-Used by: TimerSelector (Delete button onClick)
-### src/hooks/useTimerEngine.ts (none)
-Used by: TimerRunner
-– useTimerEngine(none)
-Used by: TimerRunner
-### src/models/AudioTypes.ts (none)
-Used by: AudioManager; SoundLibrary
-– SoundRef(id: string; uri: string)
-Used by: AudioConfig
-– AudioConfig(alarmSound?: SoundRef; backgroundSound?: SoundRef; loopBackground?: boolean)
-Used by: AudioManager
-### src/models/TimerTypes.ts (none)
-Used by ext: TimerScheduler; TimerNode; AudioManager; PersistenceService; useTimerEngine; TimerRunner; TimerEditor; TimerSelector; AudioService
-– TimerState(enum)
-Used by: TimerScheduler; useTimerEngine; TimerRunner; TimerEditor; PersistenceService
-– TimerConfig(id: string; name: string; durationMs?: number; divideParentInto?: number; intervalMs?: number; sequential?: boolean; children?: TimerConfig[]; audio?: TimerAudioConfig)
-Used by: TimerNode; PersistenceService; TimerEditor; TimerSelector; TimerScheduler
-– AudioChannelType(enum)
-Used by ext: AudioManager; AudioService
-– TimerAudioConfig(alarmSoundId?: string; backgroundSoundId?: string; backgroundLoop?: boolean; volume?: number)
-Used by: AudioManager; TimerConfig
-### src/pwa
-src/pwa/registerServiceWorker.ts (none)
-Used by ext: main.tsx
-– registerServiceWorker(none)
-Used by ext: main.tsx
-### src/services/AudioService.ts (none)
-Used by ext: AudioManager
-Uses ext: AudioChannelType
-– play(assetId: string; channel: AudioChannelType)
-Used by: AudioManager
-– playLoop(assetId: string; channel: AudioChannelType)
-Used by: AudioManager
-– stopChannel(channel: AudioChannelType)
-Used by: AudioManager
-### src/services/PersistenceService.ts (none)
-Used by: TimerEditor; TimerSelector; TimerGraph; TimerNode; AudioManager; SkinSelector
-– setItem(key: string; value: string)
-Used by: PersistenceService
-– getItem(key: string)
-Used by: PersistenceService
-– removeItem(key: string)
-Used by: PersistenceService
-– saveTimer(timer: TimerConfig; state: TimerState)
-Used by: TimerEditor
-– loadTimer(timerId: string)
-Used by: external callers
-– loadAllTimers(none)
-Used by: TimerSelector
-– deleteTimer(timerId: string)
-Used by: TimerSelector
-– syncTimers(none)
-Used by: none
-– saveSkin(skin: string)
-Used by: SkinSelector
-– loadSkin(none)
-Used by: SkinSelector
-### src/timers/TimerGraph.ts (root: TimerNode)
-Used by: TimerScheduler; diagnostics tooling
-– constructor(root: TimerNode)
-Used by: external graph creator (e.g., TimerScheduler bootstrap)
-– traverseDepthFirst(visitor: (node: TimerNode) => void)
-Used by: collectAllNodes; collectLeafNodes; TimerScheduler
-– collectAllNodes(none)
-Used by: TimerScheduler; diagnostics
-– collectLeafNodes(none)
-Used by: TimerScheduler
-### src/timers/TimerNode.ts (config: TimerConfig)
-Used by: TimerGraph; TimerScheduler; TimerRunner; main.tsx
-– constructor(config: TimerConfig)
-Used by: TimerGraph; main.tsx
-– addChild(child: TimerNode)
-Used by: TimerGraph; main.tsx
-– getExecutableChildren(none)
-Used by: TimerScheduler; TimerRunner
-– hasChildren(none)
-Used by: TimerGraph; TimerSchedule
-### src/main.tsx (none)
-Used by: index.html (script entry point)
-– Demo construction block(timer configs inline)
-Used by: main.tsx only
-– ReactDOM.createRoot(element: HTMLElement).render(component: ReactNode)
-Used by: main.tsx
-– registerServiceWorker(none)
-Used by: main.tsx
-### src/vite-env.d.ts (none)
-Used by: TypeScript compiler
-– reference directive(/// <reference types="vite/client" />)
-Used by: TypeScript compiler
-### index.html (none)
-Used by: Browser (application entry)
-– div#root(none)
-Used by: main.tsx
-– script(type="module" src="/src/main.tsx")
-Used by: Browser module loader
+---
+
+# Project Structure
+
+## src
+
+### audio
+
+AudioManager.ts
+SoundLibrary.ts
+SoundRegistry.ts
+
+### components
+
+TimerEditor.tsx
+TimerRunner.tsx
+TimerManager.tsx
+TimerSelector.tsx
+DurationEditor.tsx
+TimerGraph.tsx
+
+### hooks
+
+useTimerEngine.ts
+
+### models
+
+AudioTypes.ts
+TimerTypes.ts
+
+### pwa
+
+registerServiceWorker.ts
+
+### services
+
+PersistenceService.ts
+
+### skins
+
+TimerSkin.ts
+
+#### classic
+
+ColumnEditorSkin.tsx
+ColumnRunnerSkin.tsx
+TimerColumnGrid.tsx
+TimerNodeView.tsx
+buildColumnTree.ts
+
+#### minimal
+
+TimerNodeView.tsx
+
+### timers
+
+TimerGraph.ts
+TimerNode.ts
+TimerScheduler.ts
+
+### utils
+
+timeUtils.ts
+
+### viewmodels
+
+TimerViewModel.ts
+
+### main.tsx
+
+### vite-env.d.ts
+
+### index.html
+
+---
+
+# Runtime Architecture
+
+TimerNodeConfig (data model)
+↓
+TimerGraph (runtime tree)
+↓
+TimerScheduler (execution engine)
+↓
+AudioManager (alarm playback)
+↓
+useTimerEngine (React hook)
+↓
+TimerRunner (UI container)
+↓
+TimerSkin
+↓
+TimerColumnGrid
+↓
+TimerNodeView
+
+---
+
+# Core Concepts
+
+Timers are structured as a **tree**.
+
+Nodes may have:
+
+• sequential children
+• parallel siblings
+
+Example:
+
+Main
+├ Meditation
+├ Start1
+├ Start2
+└ Post
+
+Execution behavior:
+
+Parallel timers start **when parent starts**.
+Sequential timers start **when parent finishes**.
+
+---
+
+# Timer Execution Flow
+
+User presses Start
+↓
+TimerRunner.start()
+↓
+useTimerEngine.start()
+↓
+TimerScheduler.start()
+↓
+activateNode(root)
+↓
+activateNode(parallel siblings)
+↓
+scheduler tick loop begins
+↓
+remainingMs decreases each second
+↓
+node reaches 0
+↓
+alarm sound plays
+↓
+completeNode(node)
+↓
+activate sequential child
+↓
+execution continues until no active nodes remain
+
+---
+
+# Audio Playback Flow
+
+TimerScheduler
+↓
+resolveSound(node)
+↓
+AudioManager.play(sound)
+↓
+HTMLAudioElement created
+↓
+audio registered
+↓
+sound plays independently
+
+Multiple alarms may overlap.
+
+---
+
+# UI Rendering Flow
+
+TimerManager
+↓
+TimerRunner
+↓
+useTimerEngine hook
+↓
+remaining Map<string, number>
+↓
+TimerSkin.renderRunner()
+↓
+TimerColumnGrid layout
+↓
+TimerNodeView rendering
+
+Rendering is **skin controlled**.
+
+---
+
+# Column Layout Rules
+
+TimerColumnGrid renders timers using a grid.
+
+Rules:
+
+Parent node → first column
+
+Parallel nodes → columns to the right
+
+Sequential nodes → rows beneath the parent
+
+Example:
+
+| Main | Meditation | Start1 | Start2 |
+| ---- | ---------- | ------ | ------ |
+| Post |            |        |        |
+
+---
+
+# Skin System
+
+Skins control visual layout and rendering.
+
+Interface:
+
+TimerSkin.renderRunner(root, remaining)
+
+Current skins:
+
+classic/
+ColumnEditorSkin
+ColumnRunnerSkin
+TimerNodeView
+TimerColumnGrid
+
+minimal/
+TimerNodeView
+
+Future skins may include:
+
+mobile
+compact
+graph
+dashboard
+
+---
+
+# Persistence Model
+
+Timers are saved as a **TimerNodeConfig tree**.
+
+Stored using:
+
+localStorage via PersistenceService.
+
+Saved properties include:
+
+• timer structure
+• durations
+• sounds
+• skins
+• sequential relationships
+• parallel relationships
+
+Skins are stored **per node**.
+
+---
+
+# Utility Layer
+
+timeUtils.ts provides:
+
+msToHMS(ms)
+hmsToMs(h,m,s)
+formatHMS(ms)
+
+Used by:
+
+TimerEditor
+TimerRunner
+DurationEditor
+Skins
+
+---
+
+# ViewModel Layer
+
+TimerViewModel.ts handles UI logic such as:
+
+resolveSkin(node,parentSkin)
+
+Resolution order:
+
+node.skin
+↓
+parent skin
+↓
+default skin
+
+This isolates UI rules from the timer engine.
+
+---
+
+# Application Startup
+
+Browser loads:
+
+index.html
+↓
+main.tsx
+↓
+React app initialized
+↓
+service worker registered
+↓
+TimerManager mounted
+↓
+user selects timer
+↓
+TimerRunner renders timer UI
 

@@ -1,15 +1,23 @@
 import { TimerGraph } from './TimerGraph';
 import { TimerNode } from './TimerNode';
-import { audioManager } from '../services/AudioManager';
+import { TimerNodeConfig } from '../models/TimerTypes';
+import { audioManager } from '../audio/AudioManager';
 
 export class TimerScheduler {
   graph: TimerGraph;
+
   activeNodes: Set<TimerNode> = new Set();
 
   interval?: number;
 
-  constructor(graph: TimerGraph) {
-    this.graph = graph;
+  constructor(rootConfig: TimerNodeConfig) {
+    this.graph = new TimerGraph(rootConfig);
+
+    /* initialize remaining times immediately */
+
+    this.graph.collectAllNodes().forEach((node) => {
+      node.remainingMs = node.durationMs;
+    });
   }
 
   start() {
@@ -19,7 +27,9 @@ export class TimerScheduler {
 
     this.activateNode(root);
 
-    this.interval = window.setInterval(() => this.tick(), 1000);
+    if (!this.interval) {
+      this.interval = window.setInterval(() => this.tick(), 1000);
+    }
   }
 
   stop() {
@@ -29,6 +39,20 @@ export class TimerScheduler {
     }
 
     audioManager.stopAll();
+  }
+
+  reset() {
+    this.stop();
+
+    this.graph.collectAllNodes().forEach((node) => {
+      node.remainingMs = node.durationMs;
+    });
+
+    this.activeNodes.clear();
+  }
+
+  isComplete(): boolean {
+    return this.activeNodes.size === 0;
   }
 
   private activateNode(node: TimerNode) {
@@ -58,16 +82,11 @@ export class TimerScheduler {
   private completeNode(node: TimerNode) {
     this.activeNodes.delete(node);
 
-    /* play alarm */
-
     const sound = this.resolveSound(node);
 
     if (sound) {
       audioManager.play(sound);
     }
-
-
-    /* start sequential child */
 
     if (node.sequentialChild) {
       this.activateNode(node.sequentialChild);
@@ -77,12 +96,13 @@ export class TimerScheduler {
   getRemainingMap(): Map<string, number> {
     const map = new Map<string, number>();
 
-    this.graph.collectAllNodes().forEach((n) => {
-      map.set(n.id, n.remainingMs);
+    this.graph.collectAllNodes().forEach((node) => {
+      map.set(node.id, node.remainingMs);
     });
 
     return map;
   }
+
   private resolveSound(node: TimerNode): string | undefined {
     let current: TimerNode | undefined = node;
 
@@ -97,4 +117,3 @@ export class TimerScheduler {
     return undefined;
   }
 }
-
