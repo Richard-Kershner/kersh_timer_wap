@@ -1,9 +1,16 @@
 /*
-===============================================================================
-Column-aligned timer editor skin
-===============================================================================
+
+FILE: src/skins/classic/ColumnEditorSkin.tsx
+
+Column editor skin
+
+• stable tree updates
+• preserves parallel + sequential structure
+===========================================
+
 */
 
+import React from 'react';
 import { TimerSkin } from '../TimerSkin';
 import { TimerColumnGrid } from './TimerColumnGrid';
 import { TimerNodeConfig } from '../../models/TimerTypes';
@@ -15,176 +22,204 @@ function generateId(): string {
 }
 
 export const ColumnEditorSkin: TimerSkin = {
+
   renderRunner() {
     throw new Error('Runner not implemented here');
   },
 
-  renderEditor(root, onChange) {
-    function updateNode(
-      target: TimerNodeConfig,
-      updated: TimerNodeConfig,
-    ): TimerNodeConfig {
-      if (target.id === updated.id) return updated;
+  renderEditor(root: TimerNodeConfig, onChange: (node: TimerNodeConfig) => void) {
 
-      return {
-        ...target,
+// recursive safe update
+function updateTree(
+  node: TimerNodeConfig,
+  targetId: string,
+  updater: (n: TimerNodeConfig) => TimerNodeConfig
+): TimerNodeConfig {
 
-        sequentialChild: target.sequentialChild
-          ? updateNode(target.sequentialChild, updated)
+  if (node.id === targetId) {
+    return updater(node);
+  }
+
+  return {
+    ...node,
+
+    // update sequential branch
+    sequentialChild: node.sequentialChild
+      ? updateTree(node.sequentialChild, targetId, updater)
+      : undefined,
+
+    // update all parallel branches
+    parallelSiblings: node.parallelSiblings
+      ? node.parallelSiblings.map(p =>
+          updateTree(p, targetId, updater)
+        )
+      : undefined
+  };
+}
+
+function addChild(node: TimerNodeConfig) {
+
+  const child: TimerNodeConfig = {
+    id: generateId(),
+    name: 'Child',
+    durationMs: 5000,
+    inheritSound: true
+  };
+
+  onChange(
+    updateTree(root, node.id, n => ({
+      ...n,
+      sequentialChild: child
+    }))
+  );
+}
+
+function addParallel(node: TimerNodeConfig) {
+
+  const parallel: TimerNodeConfig = {
+    id: generateId(),
+    name: 'Parallel',
+    durationMs: 5000,
+    inheritSound: true
+  };
+
+  onChange(
+    updateTree(root, node.id, n => ({
+      ...n,
+      parallelSiblings: [
+        ...(n.parallelSiblings ?? []),
+        parallel
+      ]
+    }))
+  );
+}
+
+function deleteNode(node: TimerNodeConfig) {
+
+  if (node.id === root.id) return;
+
+  function remove(n: TimerNodeConfig): TimerNodeConfig {
+
+    return {
+      ...n,
+
+      // remove sequential match
+      sequentialChild:
+        n.sequentialChild?.id === node.id
+          ? undefined
+          : n.sequentialChild
+          ? remove(n.sequentialChild)
           : undefined,
 
-        parallelSiblings: target.parallelSiblings?.map((p: TimerNodeConfig) =>
-          updateNode(p, updated),
-        ),
-      };
-    }
+      // remove from parallels
+      parallelSiblings: n.parallelSiblings
+        ?.filter(p => p.id !== node.id)
+        .map(remove)
+    };
+  }
 
-    function addChild(node: TimerNodeConfig) {
-      const child: TimerNodeConfig = {
-        id: generateId(),
-        name: 'Child',
-        durationMs: 5000,
-        inheritSound: true,
-      };
+  onChange(remove(root));
+}
 
-      onChange(
-        updateNode(root, {
-          ...node,
-          sequentialChild: child,
-        }),
-      );
-    }
+return (
 
-    function addParallel(node: TimerNodeConfig) {
-      const parallel: TimerNodeConfig = {
-        id: generateId(),
-        name: 'Parallel',
-        durationMs: 5000,
-        inheritSound: true,
-      };
+  <TimerColumnGrid
+    root={root}
 
-      onChange(
-        updateNode(root, {
-          ...node,
-          parallelSiblings: [...(node.parallelSiblings ?? []), parallel],
-        }),
-      );
-    }
+    renderNode={(node: TimerNodeConfig) => (
 
-    function deleteNode(node: TimerNodeConfig) {
-      if (node.id === root.id) return;
+      <div style={{
+        border: '1px solid #ccc',
+        padding: 10,
+        background: '#fafafa'
+      }}>
 
-      function remove(target: TimerNodeConfig): TimerNodeConfig {
-        return {
-          ...target,
+        {/* name */}
+        <input
+          value={node.name}
+          onChange={e =>
+            onChange(
+              updateTree(root, node.id, n => ({
+                ...n,
+                name: e.target.value
+              }))
+            )
+          }
+        />
 
-          sequentialChild:
-            target.sequentialChild?.id === node.id
-              ? undefined
-              : target.sequentialChild
-                ? remove(target.sequentialChild)
-                : undefined,
+        {/* duration */}
+        <DurationEditor
+          ms={node.durationMs ?? 0}
+          onChange={(ms: number) =>
+            onChange(
+              updateTree(root, node.id, n => ({
+                ...n,
+                durationMs: ms
+              }))
+            )
+          }
+        />
 
-          parallelSiblings: target.parallelSiblings
-            ?.filter((p: TimerNodeConfig) => p.id !== node.id)
-            .map((p: TimerNodeConfig) => remove(p)),
-        };
-      }
+        {/* sound */}
+        <select
+          value={node.inheritSound ? 'inherit' : (node.sound ?? 'none')}
+          onChange={e => {
 
-      onChange(remove(root));
-    }
+            const v = e.target.value;
 
-    return (
-      <TimerColumnGrid
-        root={root}
-        renderNode={(node: TimerNodeConfig) => (
-          <div
-            style={{
-              border: '1px solid #ccc',
-              padding: 10,
-              background: '#fafafa',
-            }}
-          >
-            <input
-              value={node.name}
-              onChange={(e) =>
-                onChange(
-                  updateNode(root, {
-                    ...node,
-                    name: e.target.value,
-                  }),
-                )
-              }
-            />
-
-            <DurationEditor
-              ms={node.durationMs ?? 0}
-              onChange={(ms: number) =>
-                onChange(
-                  updateNode(root, {
-                    ...node,
-                    durationMs: ms,
-                  }),
-                )
-              }
-            />
-
-            {/* SOUND SELECTOR */}
-
-            <select
-              value={node.inheritSound ? 'inherit' : (node.sound ?? 'none')}
-              onChange={(e) => {
-                const v = e.target.value;
+            onChange(
+              updateTree(root, node.id, n => {
 
                 if (v === 'inherit') {
-                  onChange(
-                    updateNode(root, {
-                      ...node,
-                      inheritSound: true,
-                      sound: undefined,
-                    }),
-                  );
-                } else if (v === 'none') {
-                  onChange(
-                    updateNode(root, {
-                      ...node,
-                      inheritSound: false,
-                      sound: undefined,
-                    }),
-                  );
-                } else {
-                  onChange(
-                    updateNode(root, {
-                      ...node,
-                      inheritSound: false,
-                      sound: v,
-                    }),
-                  );
+                  return { ...n, inheritSound: true, sound: undefined };
                 }
-              }}
-            >
-              <option value="inherit">Inherit</option>
-              <option value="none">No Sound</option>
 
-              {AVAILABLE_SOUNDS.map((s: string) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+                if (v === 'none') {
+                  return { ...n, inheritSound: false, sound: undefined };
+                }
 
-            <div style={{ marginTop: 6 }}>
-              <button onClick={() => addChild(node)}>+ Child</button>
+                return { ...n, inheritSound: false, sound: v };
 
-              <button onClick={() => addParallel(node)}>+ Parallel</button>
+              })
+            );
 
-              {node.id !== root.id && (
-                <button onClick={() => deleteNode(node)}>Delete</button>
-              )}
-            </div>
-          </div>
-        )}
-      />
-    );
-  },
+          }}
+        >
+          <option value="inherit">Inherit</option>
+          <option value="none">No Sound</option>
+
+          {AVAILABLE_SOUNDS.map(s => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+
+        {/* actions */}
+        <div style={{ marginTop: 6 }}>
+
+          <button onClick={() => addChild(node)}>
+            + Child
+          </button>
+
+          <button onClick={() => addParallel(node)}>
+            + Parallel
+          </button>
+
+          {node.id !== root.id && (
+            <button onClick={() => deleteNode(node)}>
+              Delete
+            </button>
+          )}
+
+        </div>
+
+      </div>
+
+    )}
+
+  />
+
+);
+
+  }
+
 };
